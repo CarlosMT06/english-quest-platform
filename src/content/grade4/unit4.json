@@ -1,0 +1,257 @@
+{
+  "meta": {
+    "grade": 4,
+    "unit": 4,
+    "title": "Take Care",
+    "topic": "Health and the body",
+    "color": "#d97706"
+  },
+
+  "vocabulary": [
+    {
+      "id": "doctor",
+      "word": "doctor",
+      "translation": "médico / médica",
+      "image": "/assets/content/grade4/unit4/images/doctor.png",
+      "audio": "/assets/content/grade4/unit4/audio/doctor.mp3"
+    },
+    {
+      "id": "nurse",
+      "word": "nurse",
+      "translation": "enfermero / enfermera",
+      "image": "/assets/content/grade4/unit4/images/nurse.png",
+      "audio": "/assets/content/grade4/unit4/audio/nurse.mp3"
+    },
+    {
+      "id": "hospital",
+      "word": "hospital",
+      "translation": "hospital",
+      "image": "/assets/content/grade4/unit4/images/hospital.png",
+      "audio": "/assets/content/grade4/unit4/audio/hospital.mp3"
+    },
+    {
+      "id": "medicine",
+      "word": "medicine",
+      "translation": "medicina",
+      "image": "/assets/content/grade4/unit4/images/medicine.png",
+      "audio": "/assets/content/grade4/unit4/audio/medicine.mp3"
+    },
+    {
+      "id": "fever",
+      "word": "fever",
+      "translation": "fiebre",
+      "image": "/assets/content/grade4/unit4/images/fever.png",
+      "audio": "/assets/content/grade4/unit4/audio/fever.mp3"
+    },
+    {
+      "id": "headache",
+      "word": "headache",
+      "translation": "dolor de cabeza",
+      "image": "/assets/content/grade4/unit4/images/headache.png",
+      "audio": "/assets/content/grade4/unit4/audio/headache.mp3"
+    },
+    {
+      "id": "stomachache",
+      "word": "stomachache",
+      "translation": "dolor de estómago",
+      "image": "/assets/content/grade4/unit4/images/stomachache.png",
+      "audio": "/assets/content/grade4/unit4/audio/stomachache.mp3"
+    },
+    {
+      "id": "bandage",
+      "word": "bandage",
+      "translation": "venda / vendaje",
+      "image": "/assets/content/grade4/unit4/images/bandage.png",
+      "audio": "/assets/content/grade4/unit4/audio/bandage.mp3"
+    },
+    {
+      "id": "thermometer",
+      "word": "thermometer",
+      "translation": "termómetro",
+      "image": "/assets/content/grade4/unit4/images/thermometer.png",
+      "audio": "/assets/content/grade4/unit4/audio/thermometer.mp3"
+    },
+    {
+      "id": "ambulance",
+      "word": "ambulance",
+      "translation": "ambulancia",
+      "image": "/assets/content/grade4/unit4/images/ambulance.png",
+      "audio": "/assets/content/grade4/unit4/audio/ambulance.mp3"
+    }
+  ],
+
+  "minigames": {
+
+    "listen-choose": {
+      "enabled": true,
+      "instructions": "Listen to the word and choose the correct picture or option.",
+      "questions": [
+        {
+          "audio": "/assets/content/grade4/unit4/audio/doctor.mp3",
+          "correct": "doctor",
+          "choices": ["doctor", "nurse", "patient", "ambulance"]
+        },
+        {
+          "audio": "/assets/content/grade4/unit4/audio/fever.mp3",
+          "correct": "fever",
+          "choices": ["headache", "fever", "stomachache", "cold"]
+        },
+        {
+          "audio": "/assets/content/grade4/unit4/audio/bandage.mp3",
+          "correct": "bandage",
+          "choices": ["medicine", "thermometer", "bandage", "hospital"]
+        },
+        {
+          "audio": "/assets/content/grade4/unit4/audio/ambulance.mp3",
+          "correct": "ambulance",
+          "choices": ["ambulance", "hospital", "nurse", "doctor"]
+        },
+        {
+          "audio": "/assets/content/grade4/unit4/audio/thermometer.mp3",
+          "correct": "thermometer",
+          "choices": ["bandage", "medicine", "fever", "thermometer"]
+        }
+      ]
+    },
+
+    "word-scramble": {
+      "enabled": false,
+      "instructions": "Unscramble the letters to form the correct word.",
+      "words": [
+        {
+          "vocabularyId": "doctor",
+          "scrambled": "TROODC"
+        },
+        {
+          "vocabularyId": "nurse",
+          "scrambled": "SNURE"
+        },
+        {
+          "vocabularyId": "fever",
+          "scrambled": "VREFE"
+        },
+        {
+          "vocabularyId": "medicine",
+          "scrambled": "NIDICEME"
+        },
+        {
+          "vocabularyId": "bandage",
+          "scrambled": "GDABEAN"
+        },
+        {
+          "vocabularyId": "hospital",
+          "scrambled": "TIPAHOLS"
+        }
+      ]
+    },
+
+    "fill-blank": {
+      "enabled": false,
+      "instructions": "Choose the word that best completes each sentence.",
+      "questions": [
+        {
+          "sentence": "You should go to the ___ when you are very sick.",
+          "correct": "hospital",
+          "choices": ["hospital", "school", "park", "store"],
+          "audio": "/assets/content/grade4/unit4/audio/sentences/fill1.mp3"
+        },
+        {
+          "sentence": "The ___ uses a thermometer to check your temperature.",
+          "correct": "doctor",
+          "choices": ["doctor", "teacher", "chef", "pilot"],
+          "audio": "/assets/content/grade4/unit4/audio/sentences/fill2.mp3"
+        },
+        {
+          "sentence": "I have a ___. My stomach hurts a lot.",
+          "correct": "stomachache",
+          "choices": ["stomachache", "headache", "fever", "cold"],
+          "audio": "/assets/content/grade4/unit4/audio/sentences/fill3.mp3"
+        },
+        {
+          "sentence": "The ___ arrived quickly to help the injured person.",
+          "correct": "ambulance",
+          "choices": ["ambulance", "bus", "taxi", "bicycle"],
+          "audio": "/assets/content/grade4/unit4/audio/sentences/fill4.mp3"
+        },
+        {
+          "sentence": "Take this ___ three times a day to feel better.",
+          "correct": "medicine",
+          "choices": ["medicine", "water", "food", "juice"],
+          "audio": "/assets/content/grade4/unit4/audio/sentences/fill5.mp3"
+        }
+      ]
+    },
+
+    "vocab-match": {
+      "enabled": false,
+      "instructions": "Match each word with the correct picture.",
+      "pairs": [
+        { "vocabularyId": "doctor" },
+        { "vocabularyId": "nurse" },
+        { "vocabularyId": "ambulance" },
+        { "vocabularyId": "thermometer" },
+        { "vocabularyId": "bandage" },
+        { "vocabularyId": "medicine" }
+      ]
+    },
+
+    "pronunciation": {
+      "enabled": false,
+      "instructions": "Listen to the word, then record yourself saying it.",
+      "words": [
+        {
+          "vocabularyId": "doctor",
+          "phonetic": "/ˈdɒk.tər/"
+        },
+        {
+          "vocabularyId": "nurse",
+          "phonetic": "/nɜːrs/"
+        },
+        {
+          "vocabularyId": "fever",
+          "phonetic": "/ˈfiː.vər/"
+        },
+        {
+          "vocabularyId": "headache",
+          "phonetic": "/ˈhed.eɪk/"
+        },
+        {
+          "vocabularyId": "stomachache",
+          "phonetic": "/ˈstʌm.ək.eɪk/"
+        },
+        {
+          "vocabularyId": "thermometer",
+          "phonetic": "/θərˈmɒm.ɪ.tər/"
+        }
+      ]
+    },
+
+    "sentence-builder": {
+      "enabled": false,
+      "instructions": "Arrange the words to form a correct sentence.",
+      "sentences": [
+        {
+          "words": ["The", "doctor", "is", "at", "the", "hospital"],
+          "audio": "/assets/content/grade4/unit4/audio/sentences/sb1.mp3"
+        },
+        {
+          "words": ["I", "have", "a", "headache", "today"],
+          "audio": "/assets/content/grade4/unit4/audio/sentences/sb2.mp3"
+        },
+        {
+          "words": ["She", "needs", "medicine", "for", "her", "fever"],
+          "audio": "/assets/content/grade4/unit4/audio/sentences/sb3.mp3"
+        },
+        {
+          "words": ["The", "nurse", "put", "a", "bandage", "on", "my", "arm"],
+          "audio": "/assets/content/grade4/unit4/audio/sentences/sb4.mp3"
+        },
+        {
+          "words": ["Call", "an", "ambulance", "right", "now"],
+          "audio": "/assets/content/grade4/unit4/audio/sentences/sb5.mp3"
+        }
+      ]
+    }
+
+  }
+}

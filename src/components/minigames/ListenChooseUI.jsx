@@ -1,32 +1,32 @@
 import { useState } from 'react'
 
 const QUESTIONS = [
-  {
-    word: 'headache',
-    options: ['Headache', 'Fever', 'Cough', 'Rash'],
-    correct: 0
-  },
-  {
-    word: 'stomachache',
-    options: ['Runny nose', 'Stomachache', 'Sore throat', 'Rash'],
-    correct: 1
-  },
-  {
-    word: 'fever',
-    options: ['Cough', 'Headache', 'Fever', 'Sneeze'],
-    correct: 2
-  },
-  {
-    word: 'sore throat',
-    options: ['Sore throat', 'Fever', 'Rash', 'Cough'],
-    correct: 0
-  },
-  {
-    word: 'runny nose',
-    options: ['Stomachache', 'Headache', 'Sneeze', 'Runny nose'],
-    correct: 3
-  }
+  { word: 'headache',    options: ['Headache', 'Fever', 'Cough', 'Rash'],                correct: 0 },
+  { word: 'stomachache', options: ['Runny nose', 'Stomachache', 'Sore throat', 'Rash'],  correct: 1 },
+  { word: 'fever',       options: ['Cough', 'Headache', 'Fever', 'Sneeze'],              correct: 2 },
+  { word: 'sore throat', options: ['Sore throat', 'Fever', 'Rash', 'Cough'],             correct: 0 },
+  { word: 'runny nose',  options: ['Stomachache', 'Headache', 'Sneeze', 'Runny nose'],   correct: 3 },
 ]
+
+const WORD_EMOJI = {
+  headache:    '🤕',
+  fever:       '🌡️',
+  cough:       '😷',
+  rash:        '🔴',
+  stomachache: '🤢',
+  'sore throat': '🤒',
+  sneeze:      '🤧',
+  'runny nose': '🤧',
+  bandage:     '🩹',
+  medicine:    '💊',
+  doctor:      '👨‍⚕️',
+  nurse:       '👩‍⚕️',
+  hospital:    '🏥',
+  ambulance:   '🚑',
+  thermometer: '🌡️',
+  cold:        '🥶',
+  patient:     '🛏️',
+}
 
 export default function ListenChooseUI({ playerName, score, onScoreChange }) {
   const [questionIndex, setQuestionIndex] = useState(0)
@@ -36,12 +36,11 @@ export default function ListenChooseUI({ playerName, score, onScoreChange }) {
   const [finished, setFinished]           = useState(false)
 
   const question = QUESTIONS[questionIndex]
+  const locked   = selected !== null
 
-  // ── Audio TTS ────────────────────────────────────────────
   async function playAudio() {
     if (isPlaying) return
     setIsPlaying(true)
-
     try {
       const res = await fetch('/api/tts', {
         method: 'POST',
@@ -53,27 +52,20 @@ export default function ListenChooseUI({ playerName, score, onScoreChange }) {
       audio.onended = () => setIsPlaying(false)
       audio.play()
     } catch {
-      // Si la API no está disponible aún, solo muestra la palabra
       alert(`Word: ${question.word}`)
       setIsPlaying(false)
     }
   }
 
-  // ── Respuesta ────────────────────────────────────────────
   function handleAnswer(index) {
-    if (selected !== null || finished) return
+    if (locked || finished) return
     setSelected(index)
-
     const isCorrect = index === question.correct
 
-    // Avisar a Phaser
-    window.dispatchEvent(new CustomEvent('answer-result', {
-      detail: { correct: isCorrect }
-    }))
+    window.dispatchEvent(new CustomEvent('answer-result', { detail: { correct: isCorrect } }))
 
     if (isCorrect) {
       onScoreChange(prev => prev + 50)
-
       setTimeout(() => {
         if (questionIndex < QUESTIONS.length - 1) {
           setQuestionIndex(prev => prev + 1)
@@ -82,110 +74,185 @@ export default function ListenChooseUI({ playerName, score, onScoreChange }) {
         } else {
           setFinished(true)
         }
-      }, 1200)
-
+      }, 1300)
     } else {
-      const newAttempts = attempts - 1
-      setAttempts(newAttempts)
-
-      setTimeout(() => setSelected(null), 900)
+      setAttempts(prev => prev - 1)
+      setTimeout(() => setSelected(null), 950)
     }
   }
 
-  // ── Estilos de opciones ──────────────────────────────────
-  function getOptionStyle(index) {
-    const base = {
-      background: 'rgba(255,255,255,0.07)',
-      border: '1.5px solid rgba(217,119,6,0.3)',
-      borderRadius: 10,
-      padding: '10px 8px',
-      color: '#fff',
-      cursor: 'pointer',
-      fontSize: 14,
-      fontFamily: 'Nunito, sans-serif'
-    }
+  function getCardProps(index) {
+    const isSelected = selected === index
+    const isCorrect  = index === question.correct
 
-    if (selected === index) {
-      return index === question.correct
-        ? { ...base, background: 'rgba(34,197,94,0.2)',
-            border: '1.5px solid #22c55e' }
-        : { ...base, background: 'rgba(239,68,68,0.15)',
-            border: '1.5px solid #ef4444' }
+    if (isSelected && isCorrect) return {
+      bg:         '#4CAB4D',
+      border:     '2.5px solid #3a8f3b',
+      color:      '#ffffff',
+      shadow:     '0 8px 24px rgba(76,171,77,0.45)',
+      labelColor: 'rgba(255,255,255,0.65)',
+      extraClass: 'lc-pop',
     }
-
-    return base
+    if (isSelected && !isCorrect) return {
+      bg:         '#FFF0EE',
+      border:     '2.5px solid #FA8071',
+      color:      '#2D3436',
+      shadow:     '0 8px 24px rgba(250,128,113,0.35)',
+      labelColor: '#FA8071',
+      extraClass: 'lc-shake',
+    }
+    return {
+      bg:         '#ffffff',
+      border:     '2.5px solid #7BC67E',
+      color:      '#2D3436',
+      shadow:     '0 4px 14px rgba(0,0,0,0.07)',
+      labelColor: '#aac8aa',
+      extraClass: '',
+    }
   }
 
   if (finished) {
     return (
-      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0,
-                    background: 'rgba(10,20,10,0.95)',
-                    borderTop: '1px solid rgba(217,119,6,0.3)',
-                    padding: '24px', textAlign: 'center' }}>
-        <div style={{ fontSize: 32 }}>🏆</div>
-        <div style={{ color: '#fde68a', fontSize: 18,
-                      fontWeight: 500, margin: '8px 0' }}>
+      <div style={{
+        flex: 1, display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        background: '#F7F6F2', gap: 18, fontFamily: 'Nunito',
+        position: 'relative', overflow: 'hidden',
+      }}>
+        <div style={{ position: 'absolute', top: -60, right: -60, width: 220, height: 220, borderRadius: '50%', background: 'rgba(76,171,77,0.08)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', bottom: 20, left: -80, width: 260, height: 260, borderRadius: '50%', background: 'rgba(63,224,208,0.07)', pointerEvents: 'none' }} />
+        <div style={{ fontSize: 72, filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.12))' }}>🏆</div>
+        <div style={{ color: '#2D3436', fontSize: 28, fontWeight: 800, letterSpacing: '-0.3px' }}>
           Great job, {playerName}!
         </div>
-        <div style={{ color: '#fbbf24' }}>Final score: {score} pts</div>
+        <div style={{
+          color: '#ffffff', fontSize: 18, fontWeight: 800,
+          background: '#F4A261', padding: '10px 32px', borderRadius: 50,
+          boxShadow: '0 6px 18px rgba(244,162,97,0.45)',
+          letterSpacing: '0.02em',
+        }}>
+          ⭐ {score} pts
+        </div>
       </div>
     )
   }
 
   return (
-    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0,
-                  background: 'rgba(10,20,10,0.88)',
-                  borderTop: '1px solid rgba(217,119,6,0.3)',
-                  zIndex: 10 }}>
+    <div style={{
+      flex: 1,
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      background: '#F7F6F2',
+      padding: '20px 48px 28px',
+      fontFamily: 'Nunito',
+      gap: 16,
+      position: 'relative',
+      overflow: 'hidden',
+    }}>
 
-      {/* Pregunta y botón de audio */}
-      <div style={{ display: 'flex', alignItems: 'center',
-                    gap: 16, padding: '12px 20px 8px' }}>
-        <button onClick={playAudio} disabled={isPlaying}
-          style={{ width: 48, height: 48, borderRadius: '50%',
-                   background: isPlaying ? '#92400e' : '#d97706',
-                   border: 'none', fontSize: 20, cursor: 'pointer',
-                   flexShrink: 0 }}>
-          {isPlaying ? '⏸' : '🔊'}
-        </button>
-        <div>
-          <div style={{ color: '#fde68a', fontSize: 14, fontWeight: 500 }}>
-            Listen and choose the correct word
-          </div>
-          <div style={{ color: 'rgba(253,230,138,0.55)', fontSize: 11,
-                        marginTop: 2 }}>
-            Press 🔊 to listen · Question {questionIndex + 1} of {QUESTIONS.length}
+      {/* Decorative background blobs */}
+      <div style={{ position: 'absolute', top: -55, right: -55, width: 210, height: 210, borderRadius: '50%', background: 'rgba(76,171,77,0.07)', pointerEvents: 'none', zIndex: 0 }} />
+      <div style={{ position: 'absolute', bottom: 30, left: -75, width: 250, height: 250, borderRadius: '50%', background: 'rgba(63,224,208,0.06)', pointerEvents: 'none', zIndex: 0 }} />
+      <div style={{ position: 'absolute', top: '42%', right: 24, width: 100, height: 100, borderRadius: '50%', background: 'rgba(244,162,97,0.07)', pointerEvents: 'none', zIndex: 0 }} />
+
+      {/* Content layer */}
+      <div style={{ position: 'relative', zIndex: 1, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, flex: 1 }}>
+
+        {/* Progress + lives */}
+        <div style={{ width: '100%', maxWidth: 700, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{
+            color: '#ffffff', fontSize: 13, fontWeight: 800,
+            background: '#4CAB4D', padding: '5px 18px', borderRadius: 50,
+            boxShadow: '0 3px 10px rgba(76,171,77,0.35)',
+            letterSpacing: '0.03em',
+          }}>
+            {questionIndex + 1} / {QUESTIONS.length}
+          </span>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            {[...Array(3)].map((_, i) => (
+              <span key={i} style={{
+                fontSize: 26,
+                opacity: i < attempts ? 1 : 0.22,
+                filter: i < attempts ? 'drop-shadow(0 2px 5px rgba(250,128,113,0.55))' : 'none',
+                transition: 'opacity 0.3s ease, filter 0.3s ease',
+              }}>
+                ❤️
+              </span>
+            ))}
           </div>
         </div>
-      </div>
 
-      {/* Opciones */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)',
-                    gap: 8, padding: '0 20px 8px' }}>
-        {question.options.map((opt, i) => (
-          <button key={i} onClick={() => handleAnswer(i)}
-            style={getOptionStyle(i)}>
-            <div style={{ fontSize: 10, color: 'rgba(253,230,138,0.5)',
-                          marginBottom: 4 }}>
-              {['A','B','C','D'][i]}
-            </div>
-            {opt}
+        {/* Audio button + instruction */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+          <button
+            onClick={playAudio}
+            disabled={isPlaying}
+            className={!isPlaying ? 'lc-audio-pulse' : ''}
+            style={{
+              width: 92, height: 92, borderRadius: '50%',
+              background: isPlaying ? '#e8956a' : '#F4A261',
+              border: '4px solid rgba(255,255,255,0.75)',
+              fontSize: 36,
+              cursor: isPlaying ? 'default' : 'pointer',
+              outline: 'none',
+              transition: 'background 0.2s, transform 0.15s',
+            }}
+          >
+            {isPlaying ? '⏸' : '🔊'}
           </button>
-        ))}
-      </div>
+          <p style={{ color: '#2D3436', fontSize: 15, margin: 0, fontWeight: 700 }}>
+            Listen and choose the correct word
+          </p>
+        </div>
 
-      {/* Intentos */}
-      <div style={{ display: 'flex', justifyContent: 'center',
-                    alignItems: 'center', gap: 4, paddingBottom: 12 }}>
-        {[...Array(3)].map((_, i) => (
-          <span key={i} style={{ fontSize: 16 }}>
-            {i < attempts ? '❤️' : '🖤'}
-          </span>
-        ))}
-        <span style={{ color: 'rgba(253,230,138,0.5)', fontSize: 11,
-                        marginLeft: 6 }}>
-          {attempts} attempt{attempts !== 1 ? 's' : ''} remaining
-        </span>
+        {/* 2×2 answer cards */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: 14,
+          width: '100%',
+          maxWidth: 700,
+          flex: 1,
+        }}>
+          {question.options.map((opt, i) => {
+            const { bg, border, color, shadow, labelColor, extraClass } = getCardProps(i)
+            const emoji = WORD_EMOJI[opt.toLowerCase()] ?? '📝'
+
+            return (
+              <button
+                key={i}
+                onClick={() => handleAnswer(i)}
+                className={`lc-card ${extraClass}`}
+                data-locked={locked ? 'true' : 'false'}
+                style={{
+                  background: bg,
+                  border,
+                  borderRadius: 22,
+                  color,
+                  fontSize: 18,
+                  fontWeight: 700,
+                  fontFamily: 'Nunito, sans-serif',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  boxShadow: shadow,
+                  outline: 'none',
+                  cursor: locked ? 'default' : 'pointer',
+                }}
+              >
+                <span style={{ fontSize: 30, lineHeight: 1 }}>{emoji}</span>
+                <span>{opt}</span>
+                <span style={{ fontSize: 10, color: labelColor, fontWeight: 800, letterSpacing: '0.12em' }}>
+                  {['A', 'B', 'C', 'D'][i]}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+
       </div>
     </div>
   )

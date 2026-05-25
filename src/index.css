@@ -10,3 +10,41 @@ body {
   overflow: hidden;
   font-family: 'Nunito', sans-serif;
 }
+
+/* ── ListenChoose animations ─────────────────────────────── */
+@keyframes lc-shake {
+  0%, 100% { transform: translateX(0) rotate(0deg); }
+  18%       { transform: translateX(-8px) rotate(-1.5deg); }
+  36%       { transform: translateX(8px)  rotate(1.5deg); }
+  54%       { transform: translateX(-5px); }
+  72%       { transform: translateX(5px); }
+}
+
+@keyframes lc-pop {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.07); }
+  65%  { transform: scale(0.97); }
+  100% { transform: scale(1); }
+}
+
+@keyframes lc-audio-glow {
+  0%, 100% { box-shadow: 0 6px 20px rgba(244,162,97,0.45); }
+  50%       { box-shadow: 0 6px 32px rgba(244,162,97,0.7), 0 0 0 10px rgba(244,162,97,0.1); }
+}
+
+.lc-card {
+  transition: transform 0.18s cubic-bezier(.34,1.56,.64,1),
+              box-shadow 0.18s ease,
+              border-color 0.15s ease;
+}
+.lc-card:not([data-locked='true']):hover {
+  transform: translateY(-5px) scale(1.03);
+  box-shadow: 0 14px 32px rgba(76,171,77,0.22) !important;
+  border-color: #4CAB4D !important;
+}
+.lc-card:not([data-locked='true']):active {
+  transform: scale(0.96);
+}
+.lc-shake { animation: lc-shake 0.45s ease !important; }
+.lc-pop   { animation: lc-pop   0.38s ease !important; }
+.lc-audio-pulse { animation: lc-audio-glow 2.2s ease-in-out infinite; }

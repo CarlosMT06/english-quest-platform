@@ -1,13 +1,14 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import * as Phaser from 'phaser'
 import { StartScene } from './game/scenes/StartScene'
 import ListenChooseUI from './components/minigames/ListenChooseUI'
+import MinigameSelect from './components/MinigameSelect'
 
 export default function App() {
-  const [screen, setScreen]         = useState('start')
-  const [playerName, setPlayerName] = useState('')
-  const [score, setScore]           = useState(0)
-  const gameRef                     = useRef(null)
+  const [screen, setScreen]               = useState('start')
+  const [playerName, setPlayerName]       = useState('')
+  const [score, setScore]                 = useState(0)
+  const [activeMinigame, setActiveMinigame] = useState(null)
 
   useEffect(() => {
     if (screen !== 'start') return
@@ -31,26 +32,9 @@ export default function App() {
 
   useEffect(() => {
     if (screen !== 'game') return
-
-    const config = {
-      type: Phaser.AUTO,
-      width: 1280,
-      height: 720,
-      parent: 'start-phaser',
-      backgroundColor: '#1a2a1a',
-      pixelArt: true,
-      scene: [StartScene]
-    }
-
-    gameRef.current = new Phaser.Game(config)
-
     const onComplete = () => setScreen('complete')
     window.addEventListener('minigame-complete', onComplete)
-
-    return () => {
-      gameRef.current?.destroy(true)
-      window.removeEventListener('minigame-complete', onComplete)
-    }
+    return () => window.removeEventListener('minigame-complete', onComplete)
   }, [screen])
 
   // ── Pantalla de inicio ───────────────────────────────────
@@ -149,7 +133,7 @@ export default function App() {
                 placeholder="Your name..."
                 value={playerName}
                 onChange={e => setPlayerName(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && playerName.trim() && null /* setScreen('game') */}
+                onKeyDown={e => e.key === 'Enter' && playerName.trim() && setScreen('select')}
                 style={{
                   flex: 1, padding: '10px 12px', borderRadius: 10,
                   border: '1px solid rgba(217,119,6,0.4)',
@@ -163,7 +147,7 @@ export default function App() {
 
             {/* Botón */}
             <button
-              onClick={() => { /* if (playerName.trim()) setScreen('game') */ }}
+              onClick={() => { if (playerName.trim()) setScreen('select') }}
               style={{
                 background: '#d97706', border: 'none', borderRadius: 13,
                 padding: '13px 0', fontSize: 16, color: '#fff',
@@ -204,6 +188,17 @@ export default function App() {
     )
   }
 
+  // ── Pantalla de selección de minijuego ──────────────────
+  if (screen === 'select') {
+    return (
+      <MinigameSelect
+        playerName={playerName}
+        onBack={() => setScreen('start')}
+        onSelect={id => { setActiveMinigame(id); setScreen('game') }}
+      />
+    )
+  }
+
   // ── Pantalla de resultado final ──────────────────────────
   if (screen === 'complete') {
     return (
@@ -229,39 +224,43 @@ export default function App() {
 
   // ── Pantalla del juego ───────────────────────────────────
   return (
-    <div style={{ background: '#1a2a1a', height: '100vh',
+    <div style={{ background: '#F7F6F2', height: '100vh',
                   display: 'flex', flexDirection: 'column',
                   overflow: 'hidden' }}>
 
       {/* HUD */}
-      <div style={{ background: 'rgba(10,20,10,0.9)',
-                    borderBottom: '1px solid rgba(217,119,6,0.3)',
-                    padding: '8px 24px', display: 'flex',
-                    justifyContent: 'space-between', alignItems: 'center' }}>
-        <span style={{ color: '#fde68a', fontFamily: 'Nunito', fontSize: 14 }}>
+      <div style={{ background: '#4CAB4D',
+                    padding: '10px 20px', display: 'flex',
+                    justifyContent: 'space-between', alignItems: 'center',
+                    boxShadow: '0 3px 12px rgba(76,171,77,0.35)' }}>
+        <span style={{ color: '#ffffff', fontFamily: 'Nunito', fontSize: 14, fontWeight: 700,
+                       background: 'rgba(255,255,255,0.2)',
+                       padding: '4px 14px', borderRadius: 50 }}>
           ⚔️ {playerName}
         </span>
-        <span style={{ color: '#fff', fontFamily: 'Nunito', fontSize: 13,
-                       background: 'rgba(124,58,237,0.35)',
-                       padding: '3px 14px', borderRadius: 20 }}>
-          🎧 Listen and Choose
+        <span style={{ color: '#ffffff', fontFamily: 'Nunito', fontSize: 13, fontWeight: 700,
+                       background: 'rgba(255,255,255,0.25)',
+                       padding: '4px 16px', borderRadius: 50 }}>
+          {activeMinigame === 'listen-choose' && '🎧 Listen & Choose'}
+          {activeMinigame === 'word-scramble' && '🔤 Word Scramble'}
+          {activeMinigame === 'fill-blank' && '✏️ Fill the Blank'}
+          {activeMinigame === 'vocab-match' && '🃏 Vocab Match'}
+          {activeMinigame === 'pronunciation' && '🗣️ Pronunciation'}
+          {activeMinigame === 'sentence-builder' && '🧩 Sentence Builder'}
         </span>
-        <span style={{ color: '#fbbf24', fontFamily: 'Nunito', fontSize: 14 }}>
+        <span style={{ color: '#ffffff', fontFamily: 'Nunito', fontSize: 14, fontWeight: 800,
+                       background: '#F4A261',
+                       padding: '4px 14px', borderRadius: 50,
+                       boxShadow: '0 2px 8px rgba(244,162,97,0.45)' }}>
           ⭐ {score} pts
         </span>
       </div>
 
-      {/* Canvas de Phaser */}
-      <div id="phaser-container" style={{ flex: 1 }} />
-
-      {/* Panel de React encima */}
-      <div style={{ position: 'relative' }}>
-        <ListenChooseUI
-          playerName={playerName}
-          score={score}
-          onScoreChange={setScore}
-        />
-      </div>
+      <ListenChooseUI
+        playerName={playerName}
+        score={score}
+        onScoreChange={setScore}
+      />
 
     </div>
   )
