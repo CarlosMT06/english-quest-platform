@@ -48,3 +48,9 @@ body {
 .lc-shake { animation: lc-shake 0.45s ease !important; }
 .lc-pop   { animation: lc-pop   0.38s ease !important; }
 .lc-audio-pulse { animation: lc-audio-glow 2.2s ease-in-out infinite; }
+
+@keyframes lc-bounce {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-5px); }
+}
+.lc-tap-hint { animation: lc-bounce 1s ease-in-out infinite; }

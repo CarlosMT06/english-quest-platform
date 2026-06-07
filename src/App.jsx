@@ -3,6 +3,7 @@ import * as Phaser from 'phaser'
 import { StartScene } from './game/scenes/StartScene'
 import ListenChooseUI from './components/minigames/ListenChooseUI'
 import MinigameSelect from './components/MinigameSelect'
+import unit4 from './content/grade4/unit4.json'
 
 export default function App() {
   const [screen, setScreen]               = useState('start')
@@ -242,11 +243,11 @@ export default function App() {
                        background: 'rgba(255,255,255,0.25)',
                        padding: '4px 16px', borderRadius: 50 }}>
           {activeMinigame === 'listen-choose' && '🎧 Listen & Choose'}
-          {activeMinigame === 'word-scramble' && '🔤 Word Scramble'}
-          {activeMinigame === 'fill-blank' && '✏️ Fill the Blank'}
-          {activeMinigame === 'vocab-match' && '🃏 Vocab Match'}
-          {activeMinigame === 'pronunciation' && '🗣️ Pronunciation'}
-          {activeMinigame === 'sentence-builder' && '🧩 Sentence Builder'}
+          {activeMinigame === 'listen-image'  && '🖼️ Listen & Point'}
+          {activeMinigame === 'memory-match'  && '🃏 Memory Match'}
+          {activeMinigame === 'true-false'    && '✅ True or False'}
+          {activeMinigame === 'hangman'       && '🔤 Hangman'}
+          {activeMinigame === 'fill-blank'    && '✏️ Fill the Blank'}
         </span>
         <span style={{ color: '#ffffff', fontFamily: 'Nunito', fontSize: 14, fontWeight: 800,
                        background: '#F4A261',
@@ -257,6 +258,7 @@ export default function App() {
       </div>
 
       <ListenChooseUI
+        unitData={unit4}
         playerName={playerName}
         score={score}
         onScoreChange={setScore}
