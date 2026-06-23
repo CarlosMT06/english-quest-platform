@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import * as Phaser from 'phaser'
 import { StartScene } from './game/scenes/StartScene'
 import ListenChooseUI from './components/minigames/ListenChooseUI'
+import ListenImageUI  from './components/minigames/ListenImageUI'
 import MinigameSelect from './components/MinigameSelect'
 import unit4 from './content/grade4/unit4.json'
 
@@ -257,12 +258,22 @@ export default function App() {
         </span>
       </div>
 
-      <ListenChooseUI
-        unitData={unit4}
-        playerName={playerName}
-        score={score}
-        onScoreChange={setScore}
-      />
+      {activeMinigame === 'listen-choose' && (
+        <ListenChooseUI
+          unitData={unit4}
+          playerName={playerName}
+          score={score}
+          onScoreChange={setScore}
+        />
+      )}
+      {activeMinigame === 'listen-image' && (
+        <ListenImageUI
+          unitData={unit4}
+          playerName={playerName}
+          score={score}
+          onScoreChange={setScore}
+        />
+      )}
 
     </div>
   )

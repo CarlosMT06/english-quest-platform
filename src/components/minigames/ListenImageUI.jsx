@@ -1,33 +1,38 @@
 import { useState, useEffect } from 'react'
 
-function generateQuestions(vocab, count) {
-  const shuffled = [...vocab].sort(() => Math.random() - 0.5)
-  const selected = shuffled.slice(0, Math.min(count, vocab.length))
+function generateQuestions(items, count) {
+  const shuffled = [...items].sort(() => Math.random() - 0.5)
+  const selected = shuffled.slice(0, Math.min(count, items.length))
 
   return selected.map(correct => {
-    const others   = vocab.filter(v => v.id !== correct.id)
-    const wrong    = [...others].sort(() => Math.random() - 0.5).slice(0, 3)
-    const all      = [...wrong, correct].sort(() => Math.random() - 0.5)
+    const others = items.filter(v => v.id !== correct.id)
+    const wrong  = [...others].sort(() => Math.random() - 0.5).slice(0, 3)
+    const all    = [...wrong, correct].sort(() => Math.random() - 0.5)
     return {
-      word:    correct.word,
+      id:      correct.id,
       audio:   correct.audio,
-      options: all.map(o => o.word),
+      options: all.map(o => ({ id: o.id, image: o.image })),
       correct: all.findIndex(o => o.id === correct.id),
     }
   })
 }
 
-export default function ListenChooseUI({ unitData, playerName, score, onScoreChange }) {
-  const base       = unitData.paths.audioChoose
-  const vocabulary = unitData.vocabulary.map(v => ({ ...v, audio: base + v.audio }))
-  const rounds     = unitData.minigames['listen-choose'].rounds
+export default function ListenImageUI({ unitData, playerName, score, onScoreChange }) {
+  const config     = unitData.minigames['listen-image']
+  const imgBase    = unitData.paths.images
+  const audioBase  = unitData.paths.audioImage
+  const items      = config.items.map(item => ({
+    ...item,
+    image: imgBase + item.image,
+    audio: item.audio ? audioBase + item.audio : null,
+  }))
 
-  const [questions] = useState(() => generateQuestions(vocabulary, rounds))
+  const [questions] = useState(() => generateQuestions(items, config.rounds))
 
-  // Preload all audio files at session start so they are buffered before the user presses play
   const [audioCache] = useState(() => {
     const cache = {}
     questions.forEach(q => {
+      if (!q.audio) return
       const audio = new Audio(q.audio)
       audio.preload = 'auto'
       audio.load()
@@ -40,14 +45,16 @@ export default function ListenChooseUI({ unitData, playerName, score, onScoreCha
   const [attempts, setAttempts]           = useState(3)
   const [selected, setSelected]           = useState(null)
   const [isPlaying, setIsPlaying]         = useState(false)
-  const [finished, setFinished]           = useState(false)
   const [audioReady, setAudioReady]       = useState(false)
+  const [finished, setFinished]           = useState(false)
 
   const question = questions[questionIndex]
   const locked   = selected !== null
+  const hasAudio = !!question.audio
 
-  // Auto-play audio when a new round starts, waiting for buffer if needed
   useEffect(() => {
+    if (!hasAudio) return
+
     const audio = audioCache[question.audio]
 
     function autoPlay() {
@@ -69,7 +76,7 @@ export default function ListenChooseUI({ unitData, playerName, score, onScoreCha
   }, [questionIndex])
 
   function playAudio() {
-    if (isPlaying) return
+    if (isPlaying || !hasAudio) return
     setIsPlaying(true)
     const audio = audioCache[question.audio]
     audio.currentTime = 0
@@ -107,19 +114,16 @@ export default function ListenChooseUI({ unitData, playerName, score, onScoreCha
     const isCorrect  = index === question.correct
 
     if (isSelected && isCorrect) return {
-      bg: '#4CAB4D', border: '2.5px solid #3a8f3b', color: '#ffffff',
-      shadow: '0 8px 24px rgba(76,171,77,0.45)', labelColor: 'rgba(255,255,255,0.65)',
-      extraClass: 'lc-pop',
+      border: '4px solid #4CAB4D', shadow: '0 8px 24px rgba(76,171,77,0.5)',
+      overlay: 'rgba(76,171,77,0.18)', extraClass: 'lc-pop',
     }
     if (isSelected && !isCorrect) return {
-      bg: '#FFF0EE', border: '2.5px solid #FA8071', color: '#2D3436',
-      shadow: '0 8px 24px rgba(250,128,113,0.35)', labelColor: '#FA8071',
-      extraClass: 'lc-shake',
+      border: '4px solid #FA8071', shadow: '0 8px 24px rgba(250,128,113,0.45)',
+      overlay: 'rgba(250,128,113,0.18)', extraClass: 'lc-shake',
     }
     return {
-      bg: '#ffffff', border: '2.5px solid #7BC67E', color: '#2D3436',
-      shadow: '0 4px 14px rgba(0,0,0,0.07)', labelColor: '#aac8aa',
-      extraClass: '',
+      border: '3px solid #7BC67E', shadow: '0 4px 14px rgba(0,0,0,0.07)',
+      overlay: 'transparent', extraClass: '',
     }
   }
 
@@ -149,7 +153,7 @@ export default function ListenChooseUI({ unitData, playerName, score, onScoreCha
   return (
     <div style={{
       flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
-      background: '#F7F6F2', padding: '20px 48px 28px',
+      background: '#F7F6F2', padding: '20px 20px 20px',
       fontFamily: 'Nunito', gap: 16, position: 'relative', overflow: 'hidden',
     }}>
 
@@ -158,7 +162,7 @@ export default function ListenChooseUI({ unitData, playerName, score, onScoreCha
       <div style={{ position: 'absolute', bottom: 30, left: -75, width: 250, height: 250, borderRadius: '50%', background: 'rgba(63,224,208,0.06)', pointerEvents: 'none', zIndex: 0 }} />
       <div style={{ position: 'absolute', top: '42%', right: 24, width: 100, height: 100, borderRadius: '50%', background: 'rgba(244,162,97,0.07)', pointerEvents: 'none', zIndex: 0 }} />
 
-      <div style={{ position: 'relative', zIndex: 1, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, flex: 1 }}>
+      <div style={{ position: 'relative', zIndex: 1, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, flex: 1, minHeight: 0 }}>
 
         {/* Progress + lives */}
         <div style={{ width: '100%', maxWidth: 700, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -182,48 +186,49 @@ export default function ListenChooseUI({ unitData, playerName, score, onScoreCha
         </div>
 
         {/* Audio button */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
           <button
             onClick={playAudio}
-            disabled={isPlaying || !audioReady}
-            className={audioReady && !isPlaying ? 'lc-audio-pulse' : ''}
+            disabled={isPlaying || !hasAudio || !audioReady}
+            className={hasAudio && audioReady && !isPlaying ? 'lc-audio-pulse' : ''}
             style={{
               width: 92, height: 92, borderRadius: '50%',
-              background: !audioReady ? '#c8c8c8' : isPlaying ? '#e8956a' : '#F4A261',
+              background: !hasAudio ? '#c8c8c8' : !audioReady ? '#c8c8c8' : isPlaying ? '#e8956a' : '#F4A261',
               border: '4px solid rgba(255,255,255,0.75)',
-              fontSize: 36, cursor: audioReady && !isPlaying ? 'pointer' : 'default',
+              fontSize: 36, cursor: hasAudio && audioReady && !isPlaying ? 'pointer' : 'default',
               outline: 'none', transition: 'background 0.2s',
             }}
           >
-            {!audioReady ? '⏳' : isPlaying ? '⏸' : '🔊'}
+            {!hasAudio ? '🔇' : !audioReady ? '⏳' : isPlaying ? '⏸' : '🔊'}
           </button>
 
-          {/* Tap hint — only visible when idle */}
-          {audioReady && !isPlaying && (
+          {hasAudio && audioReady && !isPlaying && (
             <div className="lc-tap-hint" style={{
               display: 'flex', alignItems: 'center', gap: 5,
               background: '#4CAB4D', color: '#ffffff',
               fontSize: 12, fontWeight: 800,
               padding: '4px 14px', borderRadius: 50,
               boxShadow: '0 2px 8px rgba(76,171,77,0.3)',
-              letterSpacing: '0.02em',
             }}>
-              Press to listen again!
+              👆 Press to listen again!
             </div>
           )}
 
           <p style={{ color: '#2D3436', fontSize: 15, margin: 0, fontWeight: 700 }}>
-            Listen and choose the correct word
+            Listen and choose the correct image
           </p>
         </div>
 
-        {/* 2×2 answer cards */}
+        {/* 1×4 image cards */}
         <div style={{
-          display: 'grid', gridTemplateColumns: '1fr 1fr',
-          gap: 14, width: '100%', maxWidth: 700, flex: 1,
+          display: 'grid',
+          gridTemplateColumns: 'repeat(4, 1fr)',
+          gridTemplateRows: '1fr',
+          gap: 14, width: '100%',
+          flex: 1, minHeight: 0,
         }}>
           {question.options.map((opt, i) => {
-            const { bg, border, color, shadow, labelColor, extraClass } = getCardProps(i)
+            const { border, shadow, overlay, extraClass } = getCardProps(i)
 
             return (
               <button
@@ -232,17 +237,25 @@ export default function ListenChooseUI({ unitData, playerName, score, onScoreCha
                 className={`lc-card ${extraClass}`}
                 data-locked={locked ? 'true' : 'false'}
                 style={{
-                  background: bg, border, borderRadius: 22,
-                  color, fontSize: 18, fontWeight: 700,
-                  fontFamily: 'Nunito, sans-serif',
-                  display: 'flex', flexDirection: 'column',
-                  alignItems: 'center', justifyContent: 'center',
-                  gap: 8, boxShadow: shadow, outline: 'none',
+                  background: '#ffffff',
+                  border, borderRadius: 22,
+                  boxShadow: shadow, outline: 'none',
                   cursor: locked ? 'default' : 'pointer',
+                  position: 'relative', overflow: 'hidden',
+                  padding: 10, width: '100%', height: '100%',
+                  display: 'flex', flexDirection: 'column',
+                  alignItems: 'center', justifyContent: 'center', gap: 6,
                 }}
               >
-                <span>{opt}</span>
-                <span style={{ fontSize: 10, color: labelColor, fontWeight: 800, letterSpacing: '0.12em' }}>
+                {/* Overlay on selection */}
+                <div style={{ position: 'absolute', inset: 0, background: overlay, borderRadius: 18, pointerEvents: 'none' }} />
+
+                <img
+                  src={opt.image}
+                  alt=""
+                  style={{ width: '100%', flex: 1, objectFit: 'contain', minHeight: 0 }}
+                />
+                <span style={{ fontSize: 10, color: '#aac8aa', fontWeight: 800, letterSpacing: '0.12em' }}>
                   {['A', 'B', 'C', 'D'][i]}
                 </span>
               </button>

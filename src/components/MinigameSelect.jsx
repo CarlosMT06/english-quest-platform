@@ -11,7 +11,7 @@ const MINIGAMES = [
     name: 'Listen & Point',
     desc: 'Hear the phrase and choose the matching image',
     icon: '🖼️',
-    ready: false,
+    ready: true,
   },
   {
     id: 'memory-match',

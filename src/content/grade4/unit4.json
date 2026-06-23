@@ -7,31 +7,37 @@
     "color": "#4CAB4D"
   },
 
+  "paths": {
+    "audioChoose": "/assets/content/grade4/unit4/audio/ListeningChoose/",
+    "audioImage":  "/assets/content/grade4/unit4/audio/ListenImage/",
+    "images":      "/assets/content/grade4/unit4/images/"
+  },
+
   "vocabulary": [
-    { "id": "headache",        "word": "Headache",        "translation": "dolor de cabeza",    "audio": "/assets/content/grade4/unit4/audio/Headache.mp3" },
-    { "id": "stomachache",     "word": "Stomachache",     "translation": "dolor de estómago",  "audio": "/assets/content/grade4/unit4/audio/Stomachache.mp3" },
-    { "id": "fever",           "word": "Fever",           "translation": "fiebre",             "audio": "/assets/content/grade4/unit4/audio/Fever.mp3" },
-    { "id": "cough",           "word": "Cough",           "translation": "tos",                "audio": "/assets/content/grade4/unit4/audio/Cough.mp3" },
-    { "id": "vomiting",        "word": "Vomiting",        "translation": "vómito",             "audio": "/assets/content/grade4/unit4/audio/Vomiting.mp3" },
-    { "id": "toothache",       "word": "Toothache",       "translation": "dolor de muelas",    "audio": "/assets/content/grade4/unit4/audio/Toothache.mp3" },
-    { "id": "earache",         "word": "Earache",         "translation": "dolor de oído",      "audio": "/assets/content/grade4/unit4/audio/Earache.mp3" },
-    { "id": "rash",            "word": "Rash",            "translation": "sarpullido",         "audio": "/assets/content/grade4/unit4/audio/Rash.mp3" },
-    { "id": "sneeze",          "word": "Sneeze",          "translation": "estornudo",          "audio": "/assets/content/grade4/unit4/audio/Sneeze.mp3" },
-    { "id": "sore-throat",     "word": "Sore throat",     "translation": "dolor de garganta",  "audio": "/assets/content/grade4/unit4/audio/Sore throat.mp3" },
-    { "id": "the-flu",         "word": "The flu",         "translation": "la gripe",           "audio": "/assets/content/grade4/unit4/audio/The flu.mp3" },
-    { "id": "a-cold",          "word": "A cold",          "translation": "un resfriado",       "audio": "/assets/content/grade4/unit4/audio/A cold.mp3" },
-    { "id": "dengue-fever",    "word": "Dengue fever",    "translation": "dengue",             "audio": "/assets/content/grade4/unit4/audio/Dengue fever.mp3" },
-    { "id": "vaccination",     "word": "Vaccination",     "translation": "vacunación",         "audio": "/assets/content/grade4/unit4/audio/Vaccination.mp3" },
-    { "id": "pills",           "word": "Pills",           "translation": "pastillas",          "audio": "/assets/content/grade4/unit4/audio/Pills.mp3" },
-    { "id": "natural-medicine","word": "Natural medicine","translation": "medicina natural",   "audio": "/assets/content/grade4/unit4/audio/Natural medicine.mp3" },
-    { "id": "injection",       "word": "Injection",       "translation": "inyección",          "audio": "/assets/content/grade4/unit4/audio/Injection.mp3" },
-    { "id": "ointment",        "word": "Ointment",        "translation": "ungüento",           "audio": "/assets/content/grade4/unit4/audio/Ointment.mp3" },
-    { "id": "vitamins",        "word": "Vitamins",        "translation": "vitaminas",          "audio": "/assets/content/grade4/unit4/audio/Vitamins.mp3" },
-    { "id": "prescription",    "word": "Prescription",    "translation": "receta médica",      "audio": "/assets/content/grade4/unit4/audio/Prescription.mp3" },
-    { "id": "tablets",         "word": "Tablets",         "translation": "tabletas",           "audio": "/assets/content/grade4/unit4/audio/Tablets.mp3" },
-    { "id": "pharmacist",      "word": "Pharmacist",      "translation": "farmacéutico/a",     "audio": "/assets/content/grade4/unit4/audio/Pharmacist.mp3" },
-    { "id": "creams",          "word": "Creams",          "translation": "cremas",             "audio": "/assets/content/grade4/unit4/audio/Creams.mp3" },
-    { "id": "pain-reliever",   "word": "Pain reliever",   "translation": "analgésico",         "audio": "/assets/content/grade4/unit4/audio/Pain reliever.mp3" }
+    { "id": "headache",        "word": "Headache",        "translation": "dolor de cabeza",    "audio": "Headache.mp3" },
+    { "id": "stomachache",     "word": "Stomachache",     "translation": "dolor de estómago",  "audio": "Stomachache.mp3" },
+    { "id": "fever",           "word": "Fever",           "translation": "fiebre",             "audio": "Fever.mp3" },
+    { "id": "cough",           "word": "Cough",           "translation": "tos",                "audio": "Cough.mp3" },
+    { "id": "vomiting",        "word": "Vomiting",        "translation": "vómito",             "audio": "Vomiting.mp3" },
+    { "id": "toothache",       "word": "Toothache",       "translation": "dolor de muelas",    "audio": "Toothache.mp3" },
+    { "id": "earache",         "word": "Earache",         "translation": "dolor de oído",      "audio": "Earache.mp3" },
+    { "id": "rash",            "word": "Rash",            "translation": "sarpullido",         "audio": "Rash.mp3" },
+    { "id": "sneeze",          "word": "Sneeze",          "translation": "estornudo",          "audio": "Sneeze.mp3" },
+    { "id": "sore-throat",     "word": "Sore throat",     "translation": "dolor de garganta",  "audio": "Sore throat.mp3" },
+    { "id": "the-flu",         "word": "The flu",         "translation": "la gripe",           "audio": "The flu.mp3" },
+    { "id": "a-cold",          "word": "A cold",          "translation": "un resfriado",       "audio": "A cold.mp3" },
+    { "id": "dengue-fever",    "word": "Dengue fever",    "translation": "dengue",             "audio": "Dengue fever.mp3" },
+    { "id": "vaccination",     "word": "Vaccination",     "translation": "vacunación",         "audio": "Vaccination.mp3" },
+    { "id": "pills",           "word": "Pills",           "translation": "pastillas",          "audio": "Pills.mp3" },
+    { "id": "natural-medicine","word": "Natural medicine","translation": "medicina natural",   "audio": "Natural medicine.mp3" },
+    { "id": "injection",       "word": "Injection",       "translation": "inyección",          "audio": "Injection.mp3" },
+    { "id": "ointment",        "word": "Ointment",        "translation": "ungüento",           "audio": "Ointment.mp3" },
+    { "id": "vitamins",        "word": "Vitamins",        "translation": "vitaminas",          "audio": "Vitamins.mp3" },
+    { "id": "prescription",    "word": "Prescription",    "translation": "receta médica",      "audio": "Prescription.mp3" },
+    { "id": "tablets",         "word": "Tablets",         "translation": "tabletas",           "audio": "Tablets.mp3" },
+    { "id": "pharmacist",      "word": "Pharmacist",      "translation": "farmacéutico/a",     "audio": "Pharmacist.mp3" },
+    { "id": "creams",          "word": "Creams",          "translation": "cremas",             "audio": "Creams.mp3" },
+    { "id": "pain-reliever",   "word": "Pain reliever",   "translation": "analgésico",         "audio": "Pain reliever.mp3" }
   ],
 
   "minigames": {
@@ -43,9 +49,29 @@
     },
 
     "listen-image": {
-      "enabled": false,
+      "enabled": true,
       "rounds": 8,
-      "instructions": "Listen to the phrase and choose the matching image."
+      "instructions": "Listen to the phrase and choose the matching image.",
+      "items": [
+        { "id": "headache",     "image": "Headache.png",     "audio": "Headache.mp3" },
+        { "id": "stomachache",  "image": "Stomachache.png",  "audio": "Stomachache.mp3" },
+        { "id": "fever",        "image": "Fever.png",        "audio": "Fever.mp3" },
+        { "id": "cough",        "image": "Cough.png",        "audio": "Cough.mp3" },
+        { "id": "vomiting",     "image": "Vomiting.png",     "audio": "Vomiting.mp3" },
+        { "id": "toothache",    "image": "Toothache.png",    "audio": "Toothache.mp3" },
+        { "id": "earache",      "image": "Earache.png",      "audio": "Earache.mp3" },
+        { "id": "rash",         "image": "Rash.png",         "audio": "Rash.mp3" },
+        { "id": "sneeze",       "image": "Sneeze.png",       "audio": "Sneeze.mp3" },
+        { "id": "the-flu",      "image": "The flu.png",      "audio": "The flu.mp3" },
+        { "id": "a-cold",       "image": "A cold.png",       "audio": "A cold.mp3" },
+        { "id": "dengue-fever", "image": "DengueFever.png",  "audio": "Dengue Fever.mp3" },
+        { "id": "pills",        "image": "Pills.png",        "audio": "Pills.mp3" },
+        { "id": "injection",    "image": "Injection.png",    "audio": "Injection.mp3" },
+        { "id": "ointment",     "image": "Ointment.png",     "audio": "Ointment.mp3" },
+        { "id": "temperature",  "image": "Temperature.png",  "audio": "Temperature.mp3" },
+        { "id": "pharmacy",     "image": "Pharmacy.png",     "audio": "Pharmacy.mp3" },
+        { "id": "heart",        "image": "Heart.png",        "audio": "Heart.mp3" }
+      ]
     },
 
     "memory-match": {
