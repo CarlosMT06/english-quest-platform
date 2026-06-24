@@ -85,8 +85,14 @@
     },
 
     "hangman": {
-      "enabled": false,
-      "instructions": "Guess the letters to complete the hidden word."
+      "enabled": true,
+      "rounds": 6,
+      "instructions": "Guess the letters to complete the hidden word.",
+      "words": [
+        { "id": "1", "word": "HEADACHE" },
+        { "id": "2", "word": "FEVER" },
+        { "id": "3", "word": "STOMACHACHE" }
+      ]
     },
 
     "fill-blank": {

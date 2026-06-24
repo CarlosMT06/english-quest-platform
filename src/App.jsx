@@ -1,10 +1,14 @@
 import { useEffect, useState } from 'react'
 import * as Phaser from 'phaser'
 import { StartScene } from './game/scenes/StartScene'
+import { GameScene  } from './game/scenes/GameScene'
 import ListenChooseUI from './components/minigames/ListenChooseUI'
 import ListenImageUI  from './components/minigames/ListenImageUI'
+import HangmanUI      from './components/minigames/HangmanUI'
 import MinigameSelect from './components/MinigameSelect'
 import unit4 from './content/grade4/unit4.json'
+
+const WORLD_W = 1280
 
 export default function App() {
   const [screen, setScreen]               = useState('start')
@@ -26,6 +30,30 @@ export default function App() {
         autoCenter: Phaser.Scale.CENTER_BOTH
       },
       scene: [StartScene]
+    }
+
+    const game = new Phaser.Game(config)
+    return () => game.destroy(true)
+  }, [screen])
+
+  useEffect(() => {
+    if (screen !== 'world') return
+
+    const config = {
+      type: Phaser.AUTO,
+      width: WORLD_W,
+      height: 720,
+      parent: 'world-phaser',
+      pixelArt: true,
+      physics: {
+        default: 'arcade',
+        arcade: { gravity: { y: 1220 }, debug: false },
+      },
+      scale: {
+        mode: Phaser.Scale.ENVELOP,
+        autoCenter: Phaser.Scale.CENTER_BOTH,
+      },
+      scene: [GameScene],
     }
 
     const game = new Phaser.Game(config)
@@ -147,7 +175,7 @@ export default function App() {
               />
             </div>
 
-            {/* Botón */}
+            {/* Botón principal */}
             <button
               onClick={() => { if (playerName.trim()) setScreen('select') }}
               style={{
@@ -186,6 +214,15 @@ export default function App() {
           </div>
 
         </div>
+      </div>
+    )
+  }
+
+  // ── Mundo principal (platformer) ────────────────────────
+  if (screen === 'world') {
+    return (
+      <div style={{ width: '100vw', height: '100vh', overflow: 'hidden', position: 'relative' }}>
+        <div id="world-phaser" style={{ position: 'absolute', inset: 0 }} />
       </div>
     )
   }
@@ -268,6 +305,14 @@ export default function App() {
       )}
       {activeMinigame === 'listen-image' && (
         <ListenImageUI
+          unitData={unit4}
+          playerName={playerName}
+          score={score}
+          onScoreChange={setScore}
+        />
+      )}
+      {activeMinigame === 'hangman' && (
+        <HangmanUI
           unitData={unit4}
           playerName={playerName}
           score={score}
