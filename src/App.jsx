@@ -41,16 +41,16 @@ export default function App() {
 
     const config = {
       type: Phaser.AUTO,
-      width: WORLD_W,
-      height: 720,
+      width: 960,
+      height: 640,
       parent: 'world-phaser',
       pixelArt: true,
       physics: {
         default: 'arcade',
-        arcade: { gravity: { y: 1220 }, debug: false },
+        arcade: { gravity: { y: 0 }, debug: false },
       },
       scale: {
-        mode: Phaser.Scale.ENVELOP,
+        mode: Phaser.Scale.FIT,
         autoCenter: Phaser.Scale.CENTER_BOTH,
       },
       scene: [GameScene],
@@ -187,6 +187,19 @@ export default function App() {
               }}>
               ⚔️ Begin the Journey!
             </button>
+
+            {/* Botón de prueba — mapa */}
+            <button
+              onClick={() => setScreen('world')}
+              style={{
+                background: 'transparent',
+                border: '1px solid rgba(255,255,255,0.2)',
+                borderRadius: 10, padding: '7px 0', fontSize: 12,
+                color: 'rgba(255,255,255,0.5)',
+                fontFamily: 'Nunito', cursor: 'pointer', width: '100%',
+              }}>
+              🗺️ Ver mapa (prueba)
+            </button>
           </div>
 
           {/* Pills */}
@@ -221,7 +234,7 @@ export default function App() {
   // ── Mundo principal (platformer) ────────────────────────
   if (screen === 'world') {
     return (
-      <div style={{ width: '100vw', height: '100vh', overflow: 'hidden', position: 'relative' }}>
+      <div style={{ width: '100vw', height: '100vh', overflow: 'hidden', position: 'relative', background: '#1a1a1a' }}>
         <div id="world-phaser" style={{ position: 'absolute', inset: 0 }} />
       </div>
     )
