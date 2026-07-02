@@ -50,8 +50,7 @@ export default function App() {
         arcade: { gravity: { y: 0 }, debug: false },
       },
       scale: {
-        mode: Phaser.Scale.FIT,
-        autoCenter: Phaser.Scale.CENTER_BOTH,
+        mode: Phaser.Scale.RESIZE,
       },
       scene: [GameScene],
     }
