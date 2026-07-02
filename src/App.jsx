@@ -4,6 +4,7 @@ import { StartScene } from './game/scenes/StartScene'
 import { GameScene  } from './game/scenes/GameScene'
 import ListenChooseUI from './components/minigames/ListenChooseUI'
 import ListenImageUI  from './components/minigames/ListenImageUI'
+import ListenPointOverlay from './components/minigames/ListenPointOverlay'
 import HangmanUI      from './components/minigames/HangmanUI'
 import MinigameSelect from './components/MinigameSelect'
 import unit4 from './content/grade4/unit4.json'
@@ -15,6 +16,7 @@ export default function App() {
   const [playerName, setPlayerName]       = useState('')
   const [score, setScore]                 = useState(0)
   const [activeMinigame, setActiveMinigame] = useState(null)
+  const [worldMinigame, setWorldMinigame]   = useState(null)
 
   useEffect(() => {
     if (screen !== 'start') return
@@ -57,6 +59,14 @@ export default function App() {
 
     const game = new Phaser.Game(config)
     return () => game.destroy(true)
+  }, [screen])
+
+  // El mundo (Phaser) dispara este evento para lanzar un minijuego incrustado
+  useEffect(() => {
+    if (screen !== 'world') return
+    const onStart = (e) => setWorldMinigame(e.detail?.id ?? null)
+    window.addEventListener('start-minigame', onStart)
+    return () => window.removeEventListener('start-minigame', onStart)
   }, [screen])
 
   useEffect(() => {
@@ -235,6 +245,15 @@ export default function App() {
     return (
       <div style={{ width: '100vw', height: '100vh', overflow: 'hidden', position: 'relative', background: '#1a1a1a' }}>
         <div id="world-phaser" style={{ position: 'absolute', inset: 0 }} />
+        {worldMinigame === 'listen-image' && (
+          <ListenPointOverlay
+            unitData={unit4}
+            onEnd={() => {
+              setWorldMinigame(null)
+              window.dispatchEvent(new CustomEvent('minigame-ended'))
+            }}
+          />
+        )}
       </div>
     )
   }

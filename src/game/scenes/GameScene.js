@@ -164,6 +164,14 @@ export class GameScene extends Phaser.Scene {
     this.dialogOpen = false
     this.dialogHud.forEach(o => o.setVisible(false))
 
+    // Minijuego incrustado: mientras está activo, el jugador no se mueve
+    this.minigameActive = false
+    this._onMinigameEnded = () => { this.minigameActive = false }
+    window.addEventListener('minigame-ended', this._onMinigameEnded)
+    this.events.once('shutdown', () => {
+      window.removeEventListener('minigame-ended', this._onMinigameEnded)
+    })
+
     // Espacio avanza de página (y cierra el recuadro en la última)
     this.input.keyboard.on('keydown-SPACE', () => this._nextDialogPage())
 
@@ -194,9 +202,11 @@ export class GameScene extends Phaser.Scene {
     this.dialogHint.setVisible(hayMas)
   }
 
-  // Abre el recuadro con las frases dadas (texto o array de frases)
-  openDialog(text) {
+  // Abre el recuadro con las frases dadas (texto o array de frases).
+  // onComplete (opcional) se llama al cerrar el diálogo en la última página.
+  openDialog(text, onComplete = null) {
     this.dialogOpen = true
+    this.dialogOnComplete = onComplete
     this.doctorIndicator.setVisible(false)
     this.dialogBox.setVisible(true)
     this.dialogFace.setVisible(true)
@@ -207,6 +217,9 @@ export class GameScene extends Phaser.Scene {
   closeDialog() {
     this.dialogOpen = false
     this.dialogHud.forEach(o => o.setVisible(false))
+    const cb = this.dialogOnComplete
+    this.dialogOnComplete = null
+    if (cb) cb()
   }
 
   _nextDialogPage() {
@@ -423,8 +436,8 @@ export class GameScene extends Phaser.Scene {
   update() {
     const { player, cursors, wasd } = this
 
-    // Durante el diálogo: jugador inmóvil (espacio maneja el avance)
-    if (this.dialogOpen) {
+    // Durante el diálogo o el minijuego: jugador inmóvil
+    if (this.dialogOpen || this.minigameActive) {
       player.setVelocity(0)
       player.anims.stop()
       player.setFrame({ left: 12, right: 0, up: 6, down: 18 }[this.lastDir])
@@ -527,13 +540,17 @@ export class GameScene extends Phaser.Scene {
     // Indicador "E" visible solo cerca y sin diálogo abierto
     this.doctorIndicator.setVisible(inRange && !this.dialogOpen)
 
-    // Abrir el diálogo al presionar E estando cerca
-    if (inRange && !this.dialogOpen && Phaser.Input.Keyboard.JustDown(this.keyE)) {
-      this.openDialog([
-        'Oh no!',
-        'The hospital is very busy today.',
-        'Can you help me?',
-      ])
+    // Abrir el diálogo al presionar E estando cerca. Al terminar el
+    // diálogo se lanza el minijuego incrustado (Listen & Point).
+    if (inRange && !this.dialogOpen && !this.minigameActive &&
+        Phaser.Input.Keyboard.JustDown(this.keyE)) {
+      this.openDialog(
+        ['Oh no!', 'The hospital is very busy today.', 'Can you help me?'],
+        () => {
+          this.minigameActive = true
+          window.dispatchEvent(new CustomEvent('start-minigame', { detail: { id: 'listen-image' } }))
+        },
+      )
     }
   }
 
