@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+import { playSfx } from '../../utils/sfx'
+import { DEFAULT_PALETTE } from '../../theme/palettes'
 
 function generateQuestions(vocab, count) {
   const shuffled = [...vocab].sort(() => Math.random() - 0.5)
@@ -17,7 +19,8 @@ function generateQuestions(vocab, count) {
   })
 }
 
-export default function ListenChooseUI({ unitData, playerName, score, onScoreChange }) {
+export default function ListenChooseUI({ unitData, playerName, score, onScoreChange, palette = DEFAULT_PALETTE }) {
+  const { bg, soft, accent, primary, dark } = palette
   const base       = unitData.paths.audioChoose
   const vocabulary = unitData.vocabulary.map(v => ({ ...v, audio: base + v.audio }))
   const rounds     = unitData.minigames['listen-choose'].rounds
@@ -37,7 +40,6 @@ export default function ListenChooseUI({ unitData, playerName, score, onScoreCha
   })
 
   const [questionIndex, setQuestionIndex] = useState(0)
-  const [attempts, setAttempts]           = useState(3)
   const [selected, setSelected]           = useState(null)
   const [isPlaying, setIsPlaying]         = useState(false)
   const [finished, setFinished]           = useState(false)
@@ -84,6 +86,7 @@ export default function ListenChooseUI({ unitData, playerName, score, onScoreCha
     const isCorrect = index === question.correct
 
     window.dispatchEvent(new CustomEvent('answer-result', { detail: { correct: isCorrect } }))
+    playSfx(isCorrect ? 'correct' : 'wrong')
 
     if (isCorrect) {
       onScoreChange(prev => prev + 50)
@@ -91,13 +94,12 @@ export default function ListenChooseUI({ unitData, playerName, score, onScoreCha
         if (questionIndex < questions.length - 1) {
           setQuestionIndex(prev => prev + 1)
           setSelected(null)
-          setAttempts(3)
         } else {
           setFinished(true)
         }
       }, 1300)
     } else {
-      setAttempts(prev => prev - 1)
+      // Sin límite de fallos: se puede reintentar hasta acertar
       setTimeout(() => setSelected(null), 950)
     }
   }
@@ -117,8 +119,8 @@ export default function ListenChooseUI({ unitData, playerName, score, onScoreCha
       extraClass: 'lc-shake',
     }
     return {
-      bg: '#ffffff', border: '2.5px solid #7BC67E', color: '#2D3436',
-      shadow: '0 4px 14px rgba(0,0,0,0.07)', labelColor: '#aac8aa',
+      bg: '#ffffff', border: `2.5px solid ${accent}`, color: dark,
+      shadow: '0 4px 14px rgba(0,0,0,0.10)', labelColor: accent,
       extraClass: '',
     }
   }
@@ -128,17 +130,17 @@ export default function ListenChooseUI({ unitData, playerName, score, onScoreCha
       <div style={{
         flex: 1, display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center',
-        background: '#F7F6F2', gap: 18, fontFamily: 'Nunito',
+        background: bg, gap: 18, fontFamily: 'Nunito',
         position: 'relative', overflow: 'hidden',
       }}>
-        <div style={{ position: 'absolute', top: -60, right: -60, width: 220, height: 220, borderRadius: '50%', background: 'rgba(76,171,77,0.08)', pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', bottom: 20, left: -80, width: 260, height: 260, borderRadius: '50%', background: 'rgba(63,224,208,0.07)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', top: -60, right: -60, width: 220, height: 220, borderRadius: '50%', background: primary + '18', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', bottom: 20, left: -80, width: 260, height: 260, borderRadius: '50%', background: accent + '30', pointerEvents: 'none' }} />
         <div style={{ fontSize: 72, filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.12))' }}>🏆</div>
-        <div style={{ color: '#2D3436', fontSize: 28, fontWeight: 800 }}>Great job, {playerName}!</div>
+        <div style={{ color: dark, fontSize: 28, fontWeight: 800 }}>Great job!</div>
         <div style={{
           color: '#ffffff', fontSize: 18, fontWeight: 800,
-          background: '#F4A261', padding: '10px 32px', borderRadius: 50,
-          boxShadow: '0 6px 18px rgba(244,162,97,0.45)',
+          background: primary, padding: '10px 32px', borderRadius: 50,
+          boxShadow: '0 6px 18px rgba(0,0,0,0.2)',
         }}>
           ⭐ {score} pts
         </div>
@@ -149,36 +151,26 @@ export default function ListenChooseUI({ unitData, playerName, score, onScoreCha
   return (
     <div style={{
       flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
-      background: '#F7F6F2', padding: '20px 48px 28px',
+      background: bg, padding: '20px 48px 28px',
       fontFamily: 'Nunito', gap: 16, position: 'relative', overflow: 'hidden',
     }}>
 
       {/* Decorative blobs */}
-      <div style={{ position: 'absolute', top: -55, right: -55, width: 210, height: 210, borderRadius: '50%', background: 'rgba(76,171,77,0.07)', pointerEvents: 'none', zIndex: 0 }} />
-      <div style={{ position: 'absolute', bottom: 30, left: -75, width: 250, height: 250, borderRadius: '50%', background: 'rgba(63,224,208,0.06)', pointerEvents: 'none', zIndex: 0 }} />
-      <div style={{ position: 'absolute', top: '42%', right: 24, width: 100, height: 100, borderRadius: '50%', background: 'rgba(244,162,97,0.07)', pointerEvents: 'none', zIndex: 0 }} />
+      <div style={{ position: 'absolute', top: -55, right: -55, width: 210, height: 210, borderRadius: '50%', background: primary + '16', pointerEvents: 'none', zIndex: 0 }} />
+      <div style={{ position: 'absolute', bottom: 30, left: -75, width: 250, height: 250, borderRadius: '50%', background: accent + '28', pointerEvents: 'none', zIndex: 0 }} />
+      <div style={{ position: 'absolute', top: '42%', right: 24, width: 100, height: 100, borderRadius: '50%', background: soft, pointerEvents: 'none', zIndex: 0 }} />
 
       <div style={{ position: 'relative', zIndex: 1, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, flex: 1 }}>
 
-        {/* Progress + lives */}
-        <div style={{ width: '100%', maxWidth: 700, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        {/* Progress */}
+        <div style={{ width: '100%', maxWidth: 700, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
           <span style={{
             color: '#ffffff', fontSize: 13, fontWeight: 800,
-            background: '#4CAB4D', padding: '5px 18px', borderRadius: 50,
-            boxShadow: '0 3px 10px rgba(76,171,77,0.35)', letterSpacing: '0.03em',
+            background: primary, padding: '5px 18px', borderRadius: 50,
+            boxShadow: '0 3px 10px rgba(0,0,0,0.18)', letterSpacing: '0.03em',
           }}>
             {questionIndex + 1} / {questions.length}
           </span>
-          <div style={{ display: 'flex', gap: 6 }}>
-            {[...Array(3)].map((_, i) => (
-              <span key={i} style={{
-                fontSize: 26,
-                opacity: i < attempts ? 1 : 0.22,
-                filter: i < attempts ? 'drop-shadow(0 2px 5px rgba(250,128,113,0.55))' : 'none',
-                transition: 'opacity 0.3s ease, filter 0.3s ease',
-              }}>❤️</span>
-            ))}
-          </div>
         </div>
 
         {/* Audio button */}
@@ -189,7 +181,7 @@ export default function ListenChooseUI({ unitData, playerName, score, onScoreCha
             className={audioReady && !isPlaying ? 'lc-audio-pulse' : ''}
             style={{
               width: 92, height: 92, borderRadius: '50%',
-              background: !audioReady ? '#c8c8c8' : isPlaying ? '#e8956a' : '#F4A261',
+              background: !audioReady ? '#c8c8c8' : isPlaying ? dark : primary,
               border: '4px solid rgba(255,255,255,0.75)',
               fontSize: 36, cursor: audioReady && !isPlaying ? 'pointer' : 'default',
               outline: 'none', transition: 'background 0.2s',
@@ -202,17 +194,17 @@ export default function ListenChooseUI({ unitData, playerName, score, onScoreCha
           {audioReady && !isPlaying && (
             <div className="lc-tap-hint" style={{
               display: 'flex', alignItems: 'center', gap: 5,
-              background: '#4CAB4D', color: '#ffffff',
+              background: primary, color: '#ffffff',
               fontSize: 12, fontWeight: 800,
               padding: '4px 14px', borderRadius: 50,
-              boxShadow: '0 2px 8px rgba(76,171,77,0.3)',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.18)',
               letterSpacing: '0.02em',
             }}>
               Press to listen again!
             </div>
           )}
 
-          <p style={{ color: '#2D3436', fontSize: 15, margin: 0, fontWeight: 700 }}>
+          <p style={{ color: dark, fontSize: 15, margin: 0, fontWeight: 700 }}>
             Listen and choose the correct word
           </p>
         </div>

@@ -32,7 +32,7 @@ const MINIGAMES = [
     name: 'Hangman',
     desc: 'Guess the letters to complete the hidden word',
     icon: '🔤',
-    ready: false,
+    ready: true,
   },
   {
     id: 'fill-blank',
@@ -43,10 +43,13 @@ const MINIGAMES = [
   },
 ]
 
+import { SELECT_PALETTE as P } from '../theme/palettes'
+import { playSfx } from '../utils/sfx'
+
 export default function MinigameSelect({ playerName, onSelect, onBack }) {
   return (
     <div style={{
-      background: '#0f1a0f',
+      background: P.bg,
       minHeight: '100vh',
       display: 'flex',
       flexDirection: 'column',
@@ -57,14 +60,15 @@ export default function MinigameSelect({ playerName, onSelect, onBack }) {
       {/* Header */}
       <div style={{ width: '100%', maxWidth: 860, marginBottom: 36 }}>
         <button
-          onClick={onBack}
+          onClick={() => { playSfx('click'); onBack() }}
           style={{
             background: 'transparent',
-            border: '1px solid rgba(217,119,6,0.4)',
-            color: '#fbbf24',
+            border: `1.5px solid ${P.accent}`,
+            color: P.primary,
             borderRadius: 10,
             padding: '6px 16px',
             fontSize: 13,
+            fontWeight: 700,
             cursor: 'pointer',
             marginBottom: 28,
             fontFamily: 'Nunito',
@@ -74,16 +78,16 @@ export default function MinigameSelect({ playerName, onSelect, onBack }) {
         </button>
 
         <div style={{ textAlign: 'center' }}>
-          <p style={{ color: '#fbbf24', fontSize: 12, letterSpacing: '0.12em',
-                       textTransform: 'uppercase', marginBottom: 8 }}>
+          <p style={{ color: P.primary, fontSize: 12, letterSpacing: '0.12em',
+                       textTransform: 'uppercase', marginBottom: 8, fontWeight: 700 }}>
             Unit 4 · Take Care
           </p>
-          <h1 style={{ color: '#fff', fontSize: 36, fontWeight: 600,
+          <h1 style={{ color: P.dark, fontSize: 36, fontWeight: 700,
                         margin: 0, marginBottom: 6 }}>
             Select a Minigame
           </h1>
-          <p style={{ color: 'rgba(253,230,138,0.6)', fontSize: 14, margin: 0 }}>
-            Welcome, <span style={{ color: '#fde68a' }}>{playerName}</span>. Choose where to start.
+          <p style={{ color: 'rgba(12,78,76,0.6)', fontSize: 14, margin: 0 }}>
+            Choose a minigame to start.
           </p>
         </div>
       </div>
@@ -99,61 +103,60 @@ export default function MinigameSelect({ playerName, onSelect, onBack }) {
         {MINIGAMES.map((mg, i) => (
           <button
             key={mg.id}
-            onClick={() => mg.ready && onSelect(mg.id)}
+            onClick={() => { if (mg.ready) { playSfx('click'); onSelect(mg.id) } }}
             style={{
-              background: mg.ready
-                ? 'rgba(20,35,20,0.9)'
-                : 'rgba(15,20,15,0.6)',
+              background: mg.ready ? '#ffffff' : P.soft,
               border: mg.ready
-                ? '1px solid rgba(217,119,6,0.5)'
-                : '1px solid rgba(255,255,255,0.08)',
+                ? `1.5px solid ${P.primary}`
+                : '1.5px solid rgba(12,78,76,0.25)',
               borderRadius: 16,
               padding: '24px 20px',
               textAlign: 'left',
               cursor: mg.ready ? 'pointer' : 'not-allowed',
-              transition: 'border-color 0.15s, background 0.15s',
-              opacity: mg.ready ? 1 : 0.55,
+              transition: 'border-color 0.15s, background 0.15s, box-shadow 0.15s',
+              opacity: mg.ready ? 1 : 0.6,
+              boxShadow: mg.ready ? '0 4px 14px rgba(12,78,76,0.08)' : 'none',
             }}
             onMouseEnter={e => {
               if (!mg.ready) return
-              e.currentTarget.style.borderColor = '#d97706'
-              e.currentTarget.style.background = 'rgba(30,50,20,0.95)'
+              e.currentTarget.style.borderColor = P.dark
+              e.currentTarget.style.boxShadow = '0 6px 20px rgba(26,158,155,0.22)'
             }}
             onMouseLeave={e => {
               if (!mg.ready) return
-              e.currentTarget.style.borderColor = 'rgba(217,119,6,0.5)'
-              e.currentTarget.style.background = 'rgba(20,35,20,0.9)'
+              e.currentTarget.style.borderColor = P.primary
+              e.currentTarget.style.boxShadow = '0 4px 14px rgba(12,78,76,0.08)'
             }}
           >
             <div style={{ fontSize: 32, marginBottom: 10 }}>{mg.icon}</div>
             <div style={{ display: 'flex', alignItems: 'center',
                            gap: 8, marginBottom: 6 }}>
-              <span style={{ color: '#fff', fontSize: 16, fontWeight: 600 }}>
+              <span style={{ color: P.dark, fontSize: 16, fontWeight: 700 }}>
                 {mg.name}
               </span>
               {!mg.ready && (
                 <span style={{
-                  background: 'rgba(100,100,100,0.3)',
-                  color: '#9ca3af',
+                  background: 'rgba(12,78,76,0.12)',
+                  color: '#1a1a1a',
                   fontSize: 10,
                   padding: '2px 8px',
                   borderRadius: 20,
-                  fontWeight: 500,
+                  fontWeight: 700,
                   letterSpacing: '0.06em',
                 }}>
                   SOON
                 </span>
               )}
             </div>
-            <p style={{ color: 'rgba(253,230,138,0.6)', fontSize: 12,
+            <p style={{ color: '#1a1a1a', fontSize: 12,
                          margin: 0, lineHeight: 1.5 }}>
               {mg.desc}
             </p>
             <div style={{
               marginTop: 14,
               fontSize: 11,
-              color: mg.ready ? '#d97706' : '#4b5563',
-              fontWeight: 600,
+              color: mg.ready ? '#1a1a1a' : 'rgba(0,0,0,0.4)',
+              fontWeight: 700,
               letterSpacing: '0.05em',
             }}>
               {i + 1} / 6

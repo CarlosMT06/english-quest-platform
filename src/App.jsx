@@ -7,6 +7,8 @@ import ListenImageUI  from './components/minigames/ListenImageUI'
 import ListenPointOverlay from './components/minigames/ListenPointOverlay'
 import HangmanUI      from './components/minigames/HangmanUI'
 import MinigameSelect from './components/MinigameSelect'
+import { getPalette } from './theme/palettes'
+import { playSfx } from './utils/sfx'
 import unit4 from './content/grade4/unit4.json'
 
 const WORLD_W = 1280
@@ -17,6 +19,7 @@ export default function App() {
   const [score, setScore]                 = useState(0)
   const [activeMinigame, setActiveMinigame] = useState(null)
   const [worldMinigame, setWorldMinigame]   = useState(null)
+  const [showHelp, setShowHelp]             = useState(false)
 
   useEffect(() => {
     if (screen !== 'start') return
@@ -138,7 +141,7 @@ export default function App() {
             textTransform: 'uppercase',
             textShadow: '0 1px 6px rgba(0,0,0,0.8)'
           }}>
-            Reach the top!
+            Find the Treasure!
           </p>
 
           {/* Panel */}
@@ -157,36 +160,25 @@ export default function App() {
               Enter your name
             </div>
 
-            {/* Input con avatar */}
-            <div style={{ display: 'flex', alignItems: 'center',
-                          gap: 8, width: '100%' }}>
-              <div style={{
-                width: 36, height: 36, borderRadius: '50%',
-                background: '#78350f', border: '2px solid #d97706',
-                display: 'flex', alignItems: 'center',
-                justifyContent: 'center', fontSize: 16, flexShrink: 0
-              }}>
-                ⚔️
-              </div>
-              <input
-                placeholder="Your name..."
-                value={playerName}
-                onChange={e => setPlayerName(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && playerName.trim() && setScreen('select')}
-                style={{
-                  flex: 1, padding: '10px 12px', borderRadius: 10,
-                  border: '1px solid rgba(217,119,6,0.4)',
-                  background: 'rgba(255,255,255,0.08)',
-                  color: '#fff', fontSize: 15,
-                  fontFamily: 'Nunito', outline: 'none',
-                  textAlign: 'center'
-                }}
-              />
-            </div>
+            {/* Input de nombre (ancho completo) */}
+            <input
+              placeholder="Your name..."
+              value={playerName}
+              onChange={e => setPlayerName(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && playerName.trim() && setScreen('world')}
+              style={{
+                width: '100%', padding: '10px 12px', borderRadius: 10,
+                border: '1px solid rgba(217,119,6,0.4)',
+                background: 'rgba(255,255,255,0.08)',
+                color: '#fff', fontSize: 15,
+                fontFamily: 'Nunito', outline: 'none',
+                textAlign: 'center', boxSizing: 'border-box',
+              }}
+            />
 
-            {/* Botón principal */}
+            {/* Botón principal → juego principal (mundo) */}
             <button
-              onClick={() => { if (playerName.trim()) setScreen('select') }}
+              onClick={() => { playSfx('click'); if (playerName.trim()) setScreen('world') }}
               style={{
                 background: '#d97706', border: 'none', borderRadius: 13,
                 padding: '13px 0', fontSize: 16, color: '#fff',
@@ -194,20 +186,21 @@ export default function App() {
                 fontWeight: 500, letterSpacing: '0.02em',
                 boxShadow: '0 4px 12px rgba(180,83,9,0.4)'
               }}>
-              ⚔️ Begin the Journey!
+              Begin the Journey!
             </button>
 
-            {/* Botón de prueba — mapa */}
+            {/* Botón secundario → jugar solo los minijuegos */}
             <button
-              onClick={() => setScreen('world')}
+              onClick={() => { playSfx('click'); setScreen('select') }}
               style={{
-                background: 'transparent',
-                border: '1px solid rgba(255,255,255,0.2)',
-                borderRadius: 10, padding: '7px 0', fontSize: 12,
-                color: 'rgba(255,255,255,0.5)',
+                background: 'rgba(255,255,255,0.1)',
+                border: '1.5px solid rgba(217,119,6,0.6)',
+                borderRadius: 12, padding: '11px 0', fontSize: 14,
+                color: '#fde68a', fontWeight: 600,
                 fontFamily: 'Nunito', cursor: 'pointer', width: '100%',
+                letterSpacing: '0.02em',
               }}>
-              🗺️ Ver mapa (prueba)
+              Play Minigames Only
             </button>
           </div>
 
@@ -264,7 +257,7 @@ export default function App() {
       <MinigameSelect
         playerName={playerName}
         onBack={() => setScreen('start')}
-        onSelect={id => { setActiveMinigame(id); setScreen('game') }}
+        onSelect={id => { setActiveMinigame(id); setScore(0); setScreen('game') }}
       />
     )
   }
@@ -282,7 +275,7 @@ export default function App() {
         <p style={{ color: '#fbbf24', fontFamily: 'Nunito', fontSize: 20 }}>
           Score: {score} pts
         </p>
-        <button onClick={() => { setScreen('start'); setScore(0) }}
+        <button onClick={() => { playSfx('click'); setScreen('start'); setScore(0) }}
           style={{ background: '#d97706', border: 'none', borderRadius: 12,
                    padding: '12px 40px', fontSize: 16, color: '#fff',
                    fontFamily: 'Nunito', cursor: 'pointer', marginTop: 8 }}>
@@ -293,37 +286,57 @@ export default function App() {
   }
 
   // ── Pantalla del juego ───────────────────────────────────
+  const palette = getPalette(activeMinigame)
+
+  const hudBtnStyle = {
+    width: 44, height: 44, borderRadius: 12,
+    background: 'rgba(255,255,255,0.2)',
+    border: '1.5px solid rgba(255,255,255,0.4)',
+    color: '#ffffff', fontSize: 22, fontWeight: 800,
+    cursor: 'pointer', lineHeight: 1,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    fontFamily: 'Nunito', flexShrink: 0,
+  }
+
   return (
-    <div style={{ background: '#F7F6F2', height: '100vh',
+    <div style={{ background: palette.bg, height: '100vh',
                   display: 'flex', flexDirection: 'column',
                   overflow: 'hidden' }}>
 
-      {/* HUD */}
-      <div style={{ background: '#4CAB4D',
-                    padding: '10px 20px', display: 'flex',
+      {/* HUD — botones + título centrado */}
+      <div style={{ background: palette.primary,
+                    padding: '14px 20px', display: 'flex',
                     justifyContent: 'space-between', alignItems: 'center',
-                    boxShadow: '0 3px 12px rgba(76,171,77,0.35)' }}>
-        <span style={{ color: '#ffffff', fontFamily: 'Nunito', fontSize: 14, fontWeight: 700,
-                       background: 'rgba(255,255,255,0.2)',
-                       padding: '4px 14px', borderRadius: 50 }}>
-          ⚔️ {playerName}
+                    boxShadow: '0 3px 12px rgba(0,0,0,0.15)' }}>
+
+        {/* Izquierda: volver */}
+        <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-start' }}>
+          <button
+            onClick={() => { playSfx('click'); setScreen('select') }}
+            title="Back"
+            style={hudBtnStyle}
+          >←</button>
+        </div>
+
+        {/* Centro: título */}
+        <span style={{ color: '#ffffff', fontFamily: 'Nunito', fontSize: 22, fontWeight: 800,
+                       letterSpacing: '0.02em', flexShrink: 0 }}>
+          {activeMinigame === 'listen-choose' && 'Listen & Choose'}
+          {activeMinigame === 'listen-image'  && 'Listen & Point'}
+          {activeMinigame === 'memory-match'  && 'Memory Match'}
+          {activeMinigame === 'true-false'    && 'True or False'}
+          {activeMinigame === 'hangman'       && 'Hangman'}
+          {activeMinigame === 'fill-blank'    && 'Fill the Blank'}
         </span>
-        <span style={{ color: '#ffffff', fontFamily: 'Nunito', fontSize: 13, fontWeight: 700,
-                       background: 'rgba(255,255,255,0.25)',
-                       padding: '4px 16px', borderRadius: 50 }}>
-          {activeMinigame === 'listen-choose' && '🎧 Listen & Choose'}
-          {activeMinigame === 'listen-image'  && '🖼️ Listen & Point'}
-          {activeMinigame === 'memory-match'  && '🃏 Memory Match'}
-          {activeMinigame === 'true-false'    && '✅ True or False'}
-          {activeMinigame === 'hangman'       && '🔤 Hangman'}
-          {activeMinigame === 'fill-blank'    && '✏️ Fill the Blank'}
-        </span>
-        <span style={{ color: '#ffffff', fontFamily: 'Nunito', fontSize: 14, fontWeight: 800,
-                       background: '#F4A261',
-                       padding: '4px 14px', borderRadius: 50,
-                       boxShadow: '0 2px 8px rgba(244,162,97,0.45)' }}>
-          ⭐ {score} pts
-        </span>
+
+        {/* Derecha: instrucciones */}
+        <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+          <button
+            onClick={() => { playSfx('click'); setShowHelp(true) }}
+            title="Instructions"
+            style={hudBtnStyle}
+          >?</button>
+        </div>
       </div>
 
       {activeMinigame === 'listen-choose' && (
@@ -332,6 +345,7 @@ export default function App() {
           playerName={playerName}
           score={score}
           onScoreChange={setScore}
+          palette={palette}
         />
       )}
       {activeMinigame === 'listen-image' && (
@@ -340,6 +354,7 @@ export default function App() {
           playerName={playerName}
           score={score}
           onScoreChange={setScore}
+          palette={palette}
         />
       )}
       {activeMinigame === 'hangman' && (
@@ -348,7 +363,62 @@ export default function App() {
           playerName={playerName}
           score={score}
           onScoreChange={setScore}
+          palette={palette}
         />
+      )}
+
+      {/* Recuadro de instrucciones */}
+      {showHelp && (
+        <div
+          onClick={() => setShowHelp(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 20,
+            background: 'rgba(0,0,0,0.55)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontFamily: 'Nunito',
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: '#ffffff', borderRadius: 20,
+              width: 'min(90vw, 520px)', maxHeight: '80vh',
+              boxShadow: '0 12px 40px rgba(0,0,0,0.3)',
+              display: 'flex', flexDirection: 'column', overflow: 'hidden',
+            }}
+          >
+            {/* Encabezado */}
+            <div style={{
+              background: palette.primary, color: '#ffffff',
+              padding: '16px 22px', display: 'flex',
+              justifyContent: 'space-between', alignItems: 'center',
+            }}>
+              <span style={{ fontSize: 20, fontWeight: 800 }}>Instructions</span>
+              <button
+                onClick={() => { playSfx('click'); setShowHelp(false) }}
+                title="Close"
+                style={{
+                  width: 34, height: 34, borderRadius: 10,
+                  background: 'rgba(255,255,255,0.25)',
+                  border: '1.5px solid rgba(255,255,255,0.4)',
+                  color: '#ffffff', fontSize: 18, fontWeight: 800,
+                  cursor: 'pointer', lineHeight: 1,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}
+              >×</button>
+            </div>
+
+            {/* Contenido (vacío por ahora — espacio para las instrucciones) */}
+            <div style={{
+              padding: '24px 22px', minHeight: 180,
+              color: '#9aa0a6', fontSize: 15,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              textAlign: 'center',
+            }}>
+              (Las instrucciones irán aquí)
+            </div>
+          </div>
+        </div>
       )}
 
     </div>

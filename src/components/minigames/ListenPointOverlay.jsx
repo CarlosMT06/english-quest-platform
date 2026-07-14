@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { playSfx } from '../../utils/sfx'
 
 // Versión mínima de "Listen & Point" para incrustar sobre el mundo:
 // solo tarjetas + botón de volver a escuchar + vidas, sobre fondo oscuro.
@@ -92,6 +93,7 @@ export default function ListenPointOverlay({ unitData, onEnd }) {
     if (locked) return
     setSelected(index)
     const isCorrect = index === question.correct
+    playSfx(isCorrect ? 'correct' : 'wrong')
 
     if (isCorrect) {
       setTimeout(() => {
