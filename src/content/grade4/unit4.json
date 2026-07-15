@@ -8,9 +8,11 @@
   },
 
   "paths": {
-    "audioChoose": "/assets/content/grade4/unit4/audio/ListeningChoose/",
-    "audioImage":  "/assets/content/grade4/unit4/audio/ListenImage/",
-    "images":      "/assets/content/grade4/unit4/images/"
+    "audioChoose":    "/assets/content/grade4/unit4/audio/ListeningChoose/",
+    "audioImage":     "/assets/content/grade4/unit4/audio/ListenImage/",
+    "audioHangman":   "/assets/content/grade4/unit4/audio/Hangman/",
+    "audioFillBlank": "/assets/content/grade4/unit4/audio/FillTheBlank/",
+    "images":         "/assets/content/grade4/unit4/images/"
   },
 
   "vocabulary": [
@@ -75,8 +77,29 @@
     },
 
     "memory-match": {
-      "enabled": false,
-      "instructions": "Flip the cards and match each word with its image."
+      "enabled": true,
+      "pairs": 6,
+      "instructions": "Flip the cards and match each word with its image.",
+      "items": [
+        { "id": "a-cold",       "image": "A cold.png",       "audio": "A cold.mp3",       "sentence": "The boy has a cold." },
+        { "id": "cough",         "image": "Cough.png",         "audio": "Cough.mp3",         "sentence": "The boy is coughing." },
+        { "id": "dengue-fever", "image": "DengueFever.png",  "audio": "Dengue Fever.mp3", "sentence": "The child has dengue fever." },
+        { "id": "earache",       "image": "Earache.png",       "audio": "Earache.mp3",       "sentence": "He has an earache." },
+        { "id": "fever",         "image": "Fever.png",         "audio": "Fever.mp3",         "sentence": "He has a fever." },
+        { "id": "headache",     "image": "Headache.png",     "audio": "Headache.mp3",     "sentence": "She has a headache." },
+        { "id": "heart",         "image": "Heart.png",         "audio": "Heart.mp3",         "sentence": "The doctor is listening to her heart." },
+        { "id": "injection",     "image": "Injection.png",    "audio": "Injection.mp3",    "sentence": "The doctor is giving an injection." },
+        { "id": "ointment",     "image": "Ointment.png",     "audio": "Ointment.mp3",     "sentence": "She is putting ointment on her arm." },
+        { "id": "pharmacy",     "image": "Pharmacy.png",     "audio": "Pharmacy.mp3",     "sentence": "He is going to the pharmacy." },
+        { "id": "pills",         "image": "Pills.png",         "audio": "Pills.mp3",         "sentence": "The pharmacist is giving pills." },
+        { "id": "rash",           "image": "Rash.png",           "audio": "Rash.mp3",           "sentence": "She has a rash on her arm." },
+        { "id": "sneeze",         "image": "Sneeze.png",         "audio": "Sneeze.mp3",         "sentence": "He is sneezing." },
+        { "id": "stomachache",   "image": "Stomachache.png", "audio": "Stomachache.mp3", "sentence": "She has a stomachache." },
+        { "id": "temperature",   "image": "Temperature.png", "audio": "Temperature.mp3", "sentence": "The nurse is taking his temperature." },
+        { "id": "the-flu",       "image": "The flu.png",       "audio": "The flu.mp3",       "sentence": "She has the flu." },
+        { "id": "toothache",     "image": "Toothache.png",   "audio": "Toothache.mp3",   "sentence": "The boy has a toothache." },
+        { "id": "vomiting",     "image": "Vomiting.png",     "audio": "Vomiting.mp3",     "sentence": "She has vomiting." }
+      ]
     },
 
     "true-false": {
@@ -86,7 +109,7 @@
 
     "hangman": {
       "enabled": true,
-      "rounds": 6,
+      "rounds": 3,
       "instructions": "Guess the letters to complete the hidden word.",
       "words": [
         { "id": "1",  "word": "PILLS" },
@@ -117,15 +140,34 @@
         { "id": "26", "word": "EXAMINE" },
         { "id": "27", "word": "PRESCRIBE" },
         { "id": "28", "word": "RECOVER" },
-        { "id": "29", "word": "TREAT" },
-        { "id": "30", "word": "REST" },
-        { "id": "31", "word": "SWALLOW" }
+        { "id": "29", "word": "REST" }
       ]
     },
 
     "fill-blank": {
-      "enabled": false,
-      "instructions": "Look at the image clue and fill in the missing word."
+      "enabled": true,
+      "rounds": 5,
+      "instructions": "Look at the image clue and fill in the missing word.",
+      "items": [
+        { "id": "a-cold",       "image": "A cold.png",       "word": "COLD",        "sentence": "In winter I often catch a ___" },
+        { "id": "cough",         "image": "Cough.png",         "word": "COUGH",       "sentence": "The smoke makes me ___" },
+        { "id": "dengue-fever", "image": "DengueFever.png",  "word": "DENGUE",      "sentence": "Mosquitoes can give you ___ fever" },
+        { "id": "earache",       "image": "Earache.png",       "word": "EARACHE",     "sentence": "Loud music can cause an ___" },
+        { "id": "fever",         "image": "Fever.png",         "word": "FEVER",       "sentence": "My head feels very hot with a ___" },
+        { "id": "headache",     "image": "Headache.png",     "word": "HEADACHE",    "sentence": "Too much screen time gives me a ___" },
+        { "id": "heart",         "image": "Heart.png",         "word": "HEART",       "sentence": "The doctor listens to my ___" },
+        { "id": "injection",     "image": "Injection.png",    "word": "INJECTION",   "sentence": "The nurse gives me an ___" },
+        { "id": "ointment",     "image": "Ointment.png",     "word": "OINTMENT",    "sentence": "I put some ___ on the cut" },
+        { "id": "pharmacy",     "image": "Pharmacy.png",     "word": "PHARMACY",    "sentence": "We buy medicine at the ___" },
+        { "id": "pills",         "image": "Pills.png",         "word": "PILLS",       "sentence": "I take two ___ every day" },
+        { "id": "rash",           "image": "Rash.png",           "word": "RASH",         "sentence": "My arm is red and itchy from a ___" },
+        { "id": "sneeze",         "image": "Sneeze.png",         "word": "SNEEZE",       "sentence": "The dust makes me ___" },
+        { "id": "stomachache",   "image": "Stomachache.png", "word": "STOMACHACHE", "sentence": "I ate too much cake and got a ___" },
+        { "id": "temperature",   "image": "Temperature.png", "word": "TEMPERATURE", "sentence": "The nurse takes my ___" },
+        { "id": "the-flu",       "image": "The flu.png",       "word": "FLU",         "sentence": "I stayed in bed with the ___" },
+        { "id": "toothache",     "image": "Toothache.png",   "word": "TOOTHACHE",   "sentence": "Too much candy gave me a ___" },
+        { "id": "vomiting",     "image": "Vomiting.png",     "word": "VOMITING",    "sentence": "I feel sick and keep ___" }
+      ]
     }
 
   }

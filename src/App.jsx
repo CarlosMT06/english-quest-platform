@@ -6,6 +6,8 @@ import ListenChooseUI from './components/minigames/ListenChooseUI'
 import ListenImageUI  from './components/minigames/ListenImageUI'
 import ListenPointOverlay from './components/minigames/ListenPointOverlay'
 import HangmanUI      from './components/minigames/HangmanUI'
+import FillBlankUI    from './components/minigames/FillBlankUI'
+import MemoryMatchUI  from './components/minigames/MemoryMatchUI'
 import MinigameSelect from './components/MinigameSelect'
 import { getPalette } from './theme/palettes'
 import { playSfx } from './utils/sfx'
@@ -361,6 +363,22 @@ export default function App() {
         <HangmanUI
           unitData={unit4}
           playerName={playerName}
+          score={score}
+          onScoreChange={setScore}
+          palette={palette}
+        />
+      )}
+      {activeMinigame === 'fill-blank' && (
+        <FillBlankUI
+          unitData={unit4}
+          score={score}
+          onScoreChange={setScore}
+          palette={palette}
+        />
+      )}
+      {activeMinigame === 'memory-match' && (
+        <MemoryMatchUI
+          unitData={unit4}
           score={score}
           onScoreChange={setScore}
           palette={palette}

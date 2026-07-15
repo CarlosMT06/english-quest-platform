@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { playSfx } from '../../utils/sfx'
+import { scoreMessage } from '../../utils/scoreMessage'
 import { DEFAULT_PALETTE } from '../../theme/palettes'
+import Celebration from '../Celebration'
 
 function generateQuestions(items, count) {
   const shuffled = [...items].sort(() => Math.random() - 0.5)
@@ -46,6 +48,7 @@ export default function ListenImageUI({ unitData, playerName, score, onScoreChan
 
   const [questionIndex, setQuestionIndex] = useState(0)
   const [selected, setSelected]           = useState(null)
+  const [fails, setFails]                 = useState(0)   // fallos de la ronda actual
   const [isPlaying, setIsPlaying]         = useState(false)
   const [audioReady, setAudioReady]       = useState(false)
   const [finished, setFinished]           = useState(false)
@@ -96,17 +99,21 @@ export default function ListenImageUI({ unitData, playerName, score, onScoreChan
     playSfx(isCorrect ? 'correct' : 'wrong')
 
     if (isCorrect) {
-      onScoreChange(prev => prev + 50)
+      // 125 por ronda si es a la primera; −25 por cada fallo previo (mín. 0)
+      const gained = Math.max(0, 125 - 25 * fails)
+      onScoreChange(prev => prev + gained)
       setTimeout(() => {
         if (questionIndex < questions.length - 1) {
           setQuestionIndex(prev => prev + 1)
           setSelected(null)
+          setFails(0)
         } else {
           setFinished(true)
         }
       }, 1300)
     } else {
       // Sin límite de fallos: se puede reintentar hasta acertar
+      setFails(prev => prev + 1)
       setTimeout(() => setSelected(null), 950)
     }
   }
@@ -139,8 +146,8 @@ export default function ListenImageUI({ unitData, playerName, score, onScoreChan
       }}>
         <div style={{ position: 'absolute', top: -60, right: -60, width: 220, height: 220, borderRadius: '50%', background: primary + '18', pointerEvents: 'none' }} />
         <div style={{ position: 'absolute', bottom: 20, left: -80, width: 260, height: 260, borderRadius: '50%', background: accent + '30', pointerEvents: 'none' }} />
-        <div style={{ fontSize: 72, filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.12))' }}>🏆</div>
-        <div style={{ color: dark, fontSize: 28, fontWeight: 800 }}>Great job!</div>
+        <Celebration />
+        <div style={{ color: dark, fontSize: 34, fontWeight: 800 }}>{scoreMessage(score)}</div>
         <div style={{
           color: '#ffffff', fontSize: 18, fontWeight: 800,
           background: primary, padding: '10px 32px', borderRadius: 50,

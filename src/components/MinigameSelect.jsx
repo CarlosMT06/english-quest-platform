@@ -18,7 +18,7 @@ const MINIGAMES = [
     name: 'Memory Match',
     desc: 'Flip cards to find matching word and image pairs',
     icon: '🃏',
-    ready: false,
+    ready: true,
   },
   {
     id: 'true-false',
@@ -39,7 +39,7 @@ const MINIGAMES = [
     name: 'Fill the Blank',
     desc: 'Look at the image clue and complete the word',
     icon: '✏️',
-    ready: false,
+    ready: true,
   },
 ]
 

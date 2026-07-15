@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
 import { playSfx } from '../../utils/sfx'
+import { scoreMessage } from '../../utils/scoreMessage'
 import { DEFAULT_PALETTE } from '../../theme/palettes'
+import Celebration from '../Celebration'
 
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
-const MAX_WRONG = 6
+const MAX_WRONG = 10
 
 function pickRounds(words, count) {
   const shuffled = [...words].sort(() => Math.random() - 0.5)
@@ -11,26 +13,36 @@ function pickRounds(words, count) {
 }
 
 function HangmanDrawing({ wrongCount, gallows = '#2D3436' }) {
-  const s = { stroke: gallows, strokeWidth: 3, strokeLinecap: 'round' }
+  const g = { stroke: gallows, strokeWidth: 3, strokeLinecap: 'round' }
+
+  // Orden de aparición (1..10): 4 palos de la horca + 6 partes del cuerpo.
+  // Toda la figura usa el mismo color oscuro (gallows).
+  const parts = [
+    { t: 'line',   a: { x1: 10,  y1: 200, x2: 90,  y2: 200 }, s: g },
+    { t: 'line',   a: { x1: 50,  y1: 200, x2: 50,  y2: 10  }, s: g },
+    { t: 'line',   a: { x1: 50,  y1: 10,  x2: 140, y2: 10  }, s: g },
+    { t: 'line',   a: { x1: 140, y1: 10,  x2: 140, y2: 38  }, s: g },
+    { t: 'circle', a: { cx: 140, cy: 53,  r: 15, fill: 'none' }, s: g },
+    { t: 'line',   a: { x1: 140, y1: 68,  x2: 140, y2: 118 }, s: g },
+    { t: 'line',   a: { x1: 140, y1: 82,  x2: 114, y2: 102 }, s: g },
+    { t: 'line',   a: { x1: 140, y1: 82,  x2: 166, y2: 102 }, s: g },
+    { t: 'line',   a: { x1: 140, y1: 118, x2: 114, y2: 148 }, s: g },
+    { t: 'line',   a: { x1: 140, y1: 118, x2: 166, y2: 148 }, s: g },
+  ]
+
+  const draw = (p, key, opacity) => {
+    const common = { ...p.s, strokeOpacity: opacity, key }
+    return p.t === 'circle'
+      ? <circle {...p.a} {...common} />
+      : <line   {...p.a} {...common} />
+  }
+
   return (
     <svg viewBox="0 0 200 210" style={{ width: 260, height: 260 }}>
-      {/* Gallows */}
-      <line x1="10" y1="200" x2="90"  y2="200" {...s} />
-      <line x1="50" y1="200" x2="50"  y2="10"  {...s} />
-      <line x1="50" y1="10"  x2="140" y2="10"  {...s} />
-      <line x1="140" y1="10" x2="140" y2="38"  {...s} />
-      {/* Head */}
-      {wrongCount >= 1 && <circle cx="140" cy="53" r="15" fill="none" stroke="#FA8071" strokeWidth="3" />}
-      {/* Body */}
-      {wrongCount >= 2 && <line x1="140" y1="68" x2="140" y2="118" {...s} stroke="#FA8071" />}
-      {/* Left arm */}
-      {wrongCount >= 3 && <line x1="140" y1="82" x2="114" y2="102" {...s} stroke="#FA8071" />}
-      {/* Right arm */}
-      {wrongCount >= 4 && <line x1="140" y1="82" x2="166" y2="102" {...s} stroke="#FA8071" />}
-      {/* Left leg */}
-      {wrongCount >= 5 && <line x1="140" y1="118" x2="114" y2="148" {...s} stroke="#FA8071" />}
-      {/* Right leg */}
-      {wrongCount >= 6 && <line x1="140" y1="118" x2="166" y2="148" {...s} stroke="#FA8071" />}
+      {/* Guía tenue: dónde irá cada palo/parte */}
+      {parts.map((p, i) => draw(p, `guide-${i}`, 0.14))}
+      {/* Partes sólidas según los fallos */}
+      {parts.map((p, i) => (wrongCount >= i + 1 ? draw(p, `solid-${i}`, 1) : null))}
     </svg>
   )
 }
@@ -38,6 +50,15 @@ function HangmanDrawing({ wrongCount, gallows = '#2D3436' }) {
 export default function HangmanUI({ unitData, playerName, score, onScoreChange, palette = DEFAULT_PALETTE }) {
   const { bg, soft, accent, primary, dark } = palette
   const config = unitData.minigames['hangman']
+  const audioBase = unitData.paths.audioHangman
+
+  // "FEVER" → "Fever.mp3" (los archivos están capitalizados)
+  function playWordAudio(w) {
+    if (!w) return
+    const name = w.charAt(0) + w.slice(1).toLowerCase()
+    const audio = new Audio(audioBase + name + '.mp3')
+    audio.play().catch(() => {})
+  }
   const [rounds]       = useState(() => pickRounds(config.words, config.rounds))
   const [roundIndex,   setRoundIndex]   = useState(0)
   const [guessed,      setGuessed]      = useState(new Set())
@@ -50,14 +71,29 @@ export default function HangmanUI({ unitData, playerName, score, onScoreChange, 
   const revealed  = word.split('').every(l => guessed.has(l))
   const lost      = wrongCount >= MAX_WRONG
 
+  // Puntos por ronda repartidos entre las letras únicas de la palabra.
+  // 3 rondas: la 1ª vale 334 y las otras 333 → 334+333+333 = 1000.
+  // Se calcula al final para evitar redondeo: palabra completa = base exacta,
+  // palabra a medias = crédito parcial por las letras correctas acertadas.
+  function roundPoints() {
+    const unique = new Set(word.replace(/ /g, '').split(''))
+    if (unique.size === 0) return 0
+    const correct = [...unique].filter(l => guessed.has(l)).length
+    const base = roundIndex === 0 ? 334 : 333
+    return Math.round(base * correct / unique.size)
+  }
+
   useEffect(() => {
     if (roundStatus !== 'playing') return
     if (revealed) {
       setRoundStatus('won')
-      onScoreChange(prev => prev + 50)
+      onScoreChange(prev => prev + roundPoints())
+      playWordAudio(word)
       setTimeout(advanceRound, 1400)
     } else if (lost) {
       setRoundStatus('lost')
+      onScoreChange(prev => prev + roundPoints())
+      playWordAudio(word)
       setTimeout(advanceRound, 2000)
     }
   }, [guessed, wrongCount])
@@ -85,6 +121,16 @@ export default function HangmanUI({ unitData, playerName, score, onScoreChange, 
     }
   }
 
+  // Teclado físico: adivinar con las teclas A-Z (además del clic)
+  useEffect(() => {
+    const onKey = (e) => {
+      const letter = e.key.toUpperCase()
+      if (letter.length === 1 && letter >= 'A' && letter <= 'Z') handleGuess(letter)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [word, guessed, roundStatus])
+
   if (finished) {
     return (
       <div style={{
@@ -92,9 +138,9 @@ export default function HangmanUI({ unitData, playerName, score, onScoreChange, 
         alignItems: 'center', justifyContent: 'center',
         background: bg, gap: 18, fontFamily: 'Nunito',
       }}>
-        <div style={{ fontSize: 72 }}>🏆</div>
-        <div style={{ color: dark, fontSize: 28, fontWeight: 800 }}>
-          Great job!
+        <Celebration />
+        <div style={{ color: dark, fontSize: 34, fontWeight: 800 }}>
+          {scoreMessage(score)}
         </div>
         <div style={{
           color: '#fff', fontSize: 18, fontWeight: 800,

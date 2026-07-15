@@ -5,6 +5,7 @@ const SOURCES = {
   correct: '/assets/sfx/correct.mp3',
   wrong:   '/assets/sfx/wrong.mp3',
   click:   '/assets/sfx/click.mp3',
+  victory: '/assets/sfx/victory.mp3',
 }
 
 const VOLUME = 0.6
