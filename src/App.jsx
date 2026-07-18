@@ -103,13 +103,6 @@ export default function App() {
           }}
         />
 
-        {/* Overlay oscuro al 22% */}
-        <div style={{
-          position: 'absolute',
-          inset: 0,
-          background: 'rgba(0,0,0,0.22)',
-          zIndex: 1
-        }} />
 
         {/* Contenido encima del fondo */}
         <div style={{ position: 'relative', zIndex: 2,
@@ -118,44 +111,57 @@ export default function App() {
 
           {/* Unit tag */}
           <div style={{
-            background: 'rgba(120,53,15,0.75)',
-            border: '1px solid rgba(217,119,6,0.5)',
-            color: '#fde68a', fontSize: 11, fontWeight: 500,
+            background: 'rgba(255,255,255,0.6)',
+            border: '1px solid rgba(47,120,200,0.6)',
+            color: '#2F78C8', fontSize: 11, fontWeight: 700,
             padding: '3px 14px', borderRadius: 20,
             fontFamily: 'Nunito'
           }}>
-            Unit 4 · Take Care
+            Grade 4 · Unit 4 · Take Care
           </div>
 
-          {/* Logo */}
-          <h1 style={{
-            color: '#fff', fontFamily: 'Nunito', fontSize: 52,
-            fontWeight: 500, letterSpacing: '-0.5px',
-            textShadow: '0 2px 12px rgba(0,0,0,0.7)'
-          }}>
-            English<span style={{ color: '#d97706' }}>Quest</span>
-          </h1>
-
-          {/* Subtítulo */}
-          <p style={{
-            color: '#fde68a', fontFamily: 'Nunito',
-            fontSize: 12, letterSpacing: '0.14em',
-            textTransform: 'uppercase',
-            textShadow: '0 1px 6px rgba(0,0,0,0.8)'
-          }}>
-            Find the Treasure!
-          </p>
-
-          {/* Panel */}
+          {/* Tarjeta 1: título + subtítulo */}
           <div style={{
-            background: 'rgba(20,12,5,0.72)',
-            border: '1px solid rgba(217,119,6,0.35)',
+            background: 'rgba(255,255,255,0.6)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            borderRadius: 20, padding: '16px 34px',
+            boxShadow: '0 10px 40px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.06)',
+            display: 'flex', flexDirection: 'column',
+            alignItems: 'center', gap: 6,
+          }}>
+            {/* Logo */}
+            <h1 style={{
+              color: '#173A5E', fontFamily: 'Nunito', fontSize: 52,
+              fontWeight: 700, letterSpacing: '-0.5px',
+              textShadow: '0 1px 2px rgba(0,0,0,0.12)'
+            }}>
+              English<span style={{ color: '#2F78C8' }}>Quest</span>
+            </h1>
+
+            {/* Subtítulo */}
+            <p style={{
+              color: '#2F78C8', fontFamily: 'Nunito',
+              fontSize: 12, letterSpacing: '0.14em',
+              textTransform: 'uppercase',
+              textShadow: '0 1px 2px rgba(0,0,0,0.1)'
+            }}>
+              Find the Treasure!
+            </p>
+          </div>
+
+          {/* Tarjeta 2: nombre + botones */}
+          <div style={{
+            background: 'rgba(255,255,255,0.6)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
             borderRadius: 20, padding: '22px 30px',
+            boxShadow: '0 10px 40px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.06)',
             display: 'flex', flexDirection: 'column',
             alignItems: 'center', gap: 14, width: 300
           }}>
             <div style={{
-              fontSize: 11, fontWeight: 500, color: '#fbbf24',
+              fontSize: 11, fontWeight: 700, color: '#2F78C8',
               textTransform: 'uppercase', letterSpacing: '0.08em',
               fontFamily: 'Nunito'
             }}>
@@ -170,9 +176,9 @@ export default function App() {
               onKeyDown={e => e.key === 'Enter' && playerName.trim() && setScreen('world')}
               style={{
                 width: '100%', padding: '10px 12px', borderRadius: 10,
-                border: '1px solid rgba(217,119,6,0.4)',
-                background: 'rgba(255,255,255,0.08)',
-                color: '#fff', fontSize: 15,
+                border: '1px solid rgba(47,120,200,0.5)',
+                background: 'rgba(255,255,255,0.55)',
+                color: '#173A5E', fontSize: 15,
                 fontFamily: 'Nunito', outline: 'none',
                 textAlign: 'center', boxSizing: 'border-box',
               }}
@@ -182,11 +188,11 @@ export default function App() {
             <button
               onClick={() => { playSfx('click'); if (playerName.trim()) setScreen('world') }}
               style={{
-                background: '#d97706', border: 'none', borderRadius: 13,
+                background: '#2F78C8', border: 'none', borderRadius: 13,
                 padding: '13px 0', fontSize: 16, color: '#fff',
                 fontFamily: 'Nunito', cursor: 'pointer', width: '100%',
                 fontWeight: 500, letterSpacing: '0.02em',
-                boxShadow: '0 4px 12px rgba(180,83,9,0.4)'
+                boxShadow: '0 4px 12px rgba(23,58,94,0.45)'
               }}>
               Begin the Journey!
             </button>
@@ -195,10 +201,10 @@ export default function App() {
             <button
               onClick={() => { playSfx('click'); setScreen('select') }}
               style={{
-                background: 'rgba(255,255,255,0.1)',
-                border: '1.5px solid rgba(217,119,6,0.6)',
+                background: 'rgba(47,120,200,0.12)',
+                border: '1.5px solid rgba(47,120,200,0.7)',
                 borderRadius: 12, padding: '11px 0', fontSize: 14,
-                color: '#fde68a', fontWeight: 600,
+                color: '#2F78C8', fontWeight: 700,
                 fontFamily: 'Nunito', cursor: 'pointer', width: '100%',
                 letterSpacing: '0.02em',
               }}>
@@ -214,10 +220,10 @@ export default function App() {
               { dot: '#38bdf8', text: 'Audio in English' }
             ].map(({ dot, text }) => (
               <div key={text} style={{
-                background: 'rgba(20,12,5,0.65)',
-                border: '1px solid rgba(217,119,6,0.25)',
+                background: 'rgba(255,255,255,0.85)',
+                border: '1px solid rgba(47,120,200,0.3)',
                 borderRadius: 20, padding: '4px 12px',
-                fontSize: 11, color: '#fde68a',
+                fontSize: 11, color: '#173A5E',
                 fontFamily: 'Nunito',
                 display: 'flex', alignItems: 'center', gap: 6
               }}>
