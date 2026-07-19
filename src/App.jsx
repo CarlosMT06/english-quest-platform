@@ -8,8 +8,10 @@ import ListenPointOverlay from './components/minigames/ListenPointOverlay'
 import HangmanUI      from './components/minigames/HangmanUI'
 import FillBlankUI    from './components/minigames/FillBlankUI'
 import MemoryMatchUI  from './components/minigames/MemoryMatchUI'
+import TrueFalseUI    from './components/minigames/TrueFalseUI'
 import MinigameSelect from './components/MinigameSelect'
 import { getPalette } from './theme/palettes'
+import { INSTRUCTIONS } from './content/instructions'
 import { playSfx } from './utils/sfx'
 import unit4 from './content/grade4/unit4.json'
 
@@ -103,6 +105,19 @@ export default function App() {
           }}
         />
 
+        {/* Logos institucionales (juntos, esquina superior izquierda) */}
+        <div style={{
+          position: 'absolute', top: 16, left: 16, zIndex: 3,
+          background: 'rgba(255,255,255,0.75)',
+          backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
+          borderRadius: 14, padding: '8px 14px',
+          boxShadow: '0 4px 14px rgba(0,0,0,0.15)',
+          display: 'flex', alignItems: 'center', gap: 12,
+        }}>
+          <img src="/assets/logos/logo1.png" alt="" style={{ height: 50, display: 'block' }} />
+          <div style={{ width: 1, height: 34, background: 'rgba(0,0,0,0.12)' }} />
+          <img src="/assets/logos/logo2.png" alt="" style={{ height: 50, display: 'block' }} />
+        </div>
 
         {/* Contenido encima del fondo */}
         <div style={{ position: 'relative', zIndex: 2,
@@ -390,6 +405,13 @@ export default function App() {
           palette={palette}
         />
       )}
+      {activeMinigame === 'true-false' && (
+        <TrueFalseUI
+          score={score}
+          onScoreChange={setScore}
+          palette={palette}
+        />
+      )}
 
       {/* Recuadro de instrucciones */}
       {showHelp && (
@@ -400,28 +422,32 @@ export default function App() {
             background: 'rgba(0,0,0,0.55)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontFamily: 'Nunito',
+            animation: 'help-fade 0.2s ease',
           }}
         >
           <div
             onClick={e => e.stopPropagation()}
             style={{
               background: '#ffffff', borderRadius: 20,
-              width: 'min(90vw, 520px)', maxHeight: '80vh',
+              width: 'min(92vw, 560px)', maxHeight: '82vh',
               boxShadow: '0 12px 40px rgba(0,0,0,0.3)',
               display: 'flex', flexDirection: 'column', overflow: 'hidden',
+              animation: 'help-pop 0.28s cubic-bezier(0.34, 1.3, 0.7, 1)',
             }}
           >
             {/* Encabezado */}
             <div style={{
               background: palette.primary, color: '#ffffff',
               padding: '16px 22px', display: 'flex',
-              justifyContent: 'space-between', alignItems: 'center',
+              justifyContent: 'center', alignItems: 'center',
+              position: 'relative',
             }}>
               <span style={{ fontSize: 20, fontWeight: 800 }}>Instructions</span>
               <button
                 onClick={() => { playSfx('click'); setShowHelp(false) }}
                 title="Close"
                 style={{
+                  position: 'absolute', right: 18, top: '50%', transform: 'translateY(-50%)',
                   width: 34, height: 34, borderRadius: 10,
                   background: 'rgba(255,255,255,0.25)',
                   border: '1.5px solid rgba(255,255,255,0.4)',
@@ -432,14 +458,38 @@ export default function App() {
               >×</button>
             </div>
 
-            {/* Contenido (vacío por ahora — espacio para las instrucciones) */}
+            {/* Contenido: instrucciones en inglés y luego en español */}
             <div style={{
-              padding: '24px 22px', minHeight: 180,
-              color: '#9aa0a6', fontSize: 15,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              textAlign: 'center',
+              padding: '24px 26px', overflowY: 'auto',
+              color: '#2D3436', fontSize: 17, lineHeight: 1.45,
+              display: 'flex', flexDirection: 'column', gap: 22,
             }}>
-              (Las instrucciones irán aquí)
+              {['en', 'es'].map((lang, li) => (
+                <div key={lang}>
+                  {li === 1 && <div style={{ height: 1, background: '#e5e7eb', margin: '0 0 22px' }} />}
+                  <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.08em',
+                                textTransform: 'uppercase', color: palette.primary, marginBottom: 12,
+                                textAlign: 'center' }}>
+                    {lang === 'en' ? 'English' : 'Español'}
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+                    {INSTRUCTIONS[activeMinigame]?.[lang].map((step, i) => (
+                      <div key={i} style={{
+                        display: 'flex', gap: 12, alignItems: 'flex-start',
+                        animation: `help-item 0.32s ease ${i * 0.05}s both`,
+                      }}>
+                        <span style={{
+                          flexShrink: 0, width: 28, height: 28, borderRadius: '50%',
+                          background: palette.primary, color: '#fff',
+                          fontSize: 15, fontWeight: 800,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}>{i + 1}</span>
+                        <span style={{ flex: 1, paddingTop: 3 }}>{step}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>

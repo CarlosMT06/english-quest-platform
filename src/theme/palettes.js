@@ -53,6 +53,13 @@ export const PALETTES = {
     primary: '#3F6F4B',
     dark:    '#1C3B25',
   },
+  'true-false': {
+    bg:      '#FFFFFF',
+    soft:    '#E5E7EB',
+    accent:  '#9CA3AF',
+    primary: '#4B5563',
+    dark:    '#111827',
+  },
 }
 
 // Paleta para la pantalla de selección de minijuego

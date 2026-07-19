@@ -25,7 +25,7 @@ const MINIGAMES = [
     name: 'True or False',
     desc: 'Read the text and decide which statements are true',
     icon: '✅',
-    ready: false,
+    ready: true,
   },
   {
     id: 'hangman',
@@ -80,7 +80,7 @@ export default function MinigameSelect({ playerName, onSelect, onBack }) {
         <div style={{ textAlign: 'center' }}>
           <p style={{ color: P.primary, fontSize: 12, letterSpacing: '0.12em',
                        textTransform: 'uppercase', marginBottom: 8, fontWeight: 700 }}>
-            Unit 4 · Take Care
+            Grade 4 · Unit 4 · Take Care
           </p>
           <h1 style={{ color: P.dark, fontSize: 36, fontWeight: 700,
                         margin: 0, marginBottom: 6 }}>
