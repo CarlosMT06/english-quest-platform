@@ -3,6 +3,7 @@ import { playSfx } from '../../utils/sfx'
 import { scoreMessage } from '../../utils/scoreMessage'
 import { DEFAULT_PALETTE } from '../../theme/palettes'
 import Celebration from '../Celebration'
+import LogoBar from '../LogoBar'
 
 function generateQuestions(vocab, count) {
   const shuffled = [...vocab].sort(() => Math.random() - 0.5)
@@ -151,6 +152,7 @@ export default function ListenChooseUI({ unitData, playerName, score, onScoreCha
         }}>
           ⭐ {score} pts
         </div>
+        <LogoBar palette={palette} />
       </div>
     )
   }
@@ -158,7 +160,7 @@ export default function ListenChooseUI({ unitData, playerName, score, onScoreCha
   return (
     <div style={{
       flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
-      background: bg, padding: '20px 48px 28px',
+      background: bg, padding: '20px 48px 76px',
       fontFamily: 'Nunito', gap: 16, position: 'relative', overflow: 'hidden',
     }}>
 
@@ -216,10 +218,11 @@ export default function ListenChooseUI({ unitData, playerName, score, onScoreCha
           </p>
         </div>
 
-        {/* 2×2 answer cards */}
+        {/* answer cards (single horizontal row) */}
         <div style={{
-          display: 'grid', gridTemplateColumns: '1fr 1fr',
-          gap: 14, width: '100%', maxWidth: 700, flex: 1,
+          display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)',
+          gridTemplateRows: '1fr',
+          gap: 16, width: '100%', flex: 1, minHeight: 0,
         }}>
           {question.options.map((opt, i) => {
             const { bg, border, color, shadow, labelColor, extraClass } = getCardProps(i)
@@ -232,16 +235,17 @@ export default function ListenChooseUI({ unitData, playerName, score, onScoreCha
                 data-locked={locked ? 'true' : 'false'}
                 style={{
                   background: bg, border, borderRadius: 22,
-                  color, fontSize: 18, fontWeight: 700,
+                  color, fontSize: 26, fontWeight: 800,
                   fontFamily: 'Nunito, sans-serif',
                   display: 'flex', flexDirection: 'column',
                   alignItems: 'center', justifyContent: 'center',
-                  gap: 8, boxShadow: shadow, outline: 'none',
+                  gap: 12, boxShadow: shadow, outline: 'none',
+                  padding: '16px 12px', textAlign: 'center',
                   cursor: locked ? 'default' : 'pointer',
                 }}
               >
-                <span>{opt}</span>
-                <span style={{ fontSize: 10, color: labelColor, fontWeight: 800, letterSpacing: '0.12em' }}>
+                <span style={{ lineHeight: 1.15 }}>{opt}</span>
+                <span style={{ fontSize: 13, color: labelColor, fontWeight: 800, letterSpacing: '0.12em' }}>
                   {['A', 'B', 'C', 'D'][i]}
                 </span>
               </button>
@@ -250,6 +254,8 @@ export default function ListenChooseUI({ unitData, playerName, score, onScoreCha
         </div>
 
       </div>
+
+      <LogoBar palette={palette} />
     </div>
   )
 }

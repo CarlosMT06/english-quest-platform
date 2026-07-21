@@ -3,6 +3,7 @@ import { playSfx } from '../../utils/sfx'
 import { scoreMessage } from '../../utils/scoreMessage'
 import { DEFAULT_PALETTE } from '../../theme/palettes'
 import Celebration from '../Celebration'
+import LogoBar from '../LogoBar'
 
 function pickRounds(items, count) {
   return [...items]
@@ -115,6 +116,7 @@ export default function FillBlankUI({ unitData, score, onScoreChange, palette = 
         }}>
           ⭐ {score} pts
         </div>
+        <LogoBar palette={palette} />
       </div>
     )
   }
@@ -126,8 +128,8 @@ export default function FillBlankUI({ unitData, score, onScoreChange, palette = 
   return (
     <div style={{
       flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
-      justifyContent: 'center', gap: 26,
-      background: bg, padding: '24px 40px 32px',
+      justifyContent: 'flex-start', gap: 50,
+      background: bg, padding: '24px 40px 80px',
       fontFamily: 'Nunito', position: 'relative', overflow: 'hidden',
     }}>
 
@@ -223,6 +225,7 @@ export default function FillBlankUI({ unitData, score, onScoreChange, palette = 
         </button>
       </div>
 
+      <LogoBar palette={palette} />
     </div>
   )
 }

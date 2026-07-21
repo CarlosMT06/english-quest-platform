@@ -24,6 +24,18 @@ export default function App() {
   const [activeMinigame, setActiveMinigame] = useState(null)
   const [worldMinigame, setWorldMinigame]   = useState(null)
   const [showHelp, setShowHelp]             = useState(false)
+  const [nameError, setNameError]           = useState(false)
+  const [showAbout, setShowAbout]           = useState(false)
+
+  // Intenta ir al mundo; si no hay nombre, muestra un aviso breve.
+  function tryBeginJourney() {
+    if (playerName.trim()) {
+      setScreen('world')
+    } else {
+      setNameError(true)
+      setTimeout(() => setNameError(false), 2200)
+    }
+  }
 
   useEffect(() => {
     if (screen !== 'start') return
@@ -104,6 +116,101 @@ export default function App() {
             zIndex: 0
           }}
         />
+
+        {/* Botón "About" (esquina superior derecha) */}
+        <button
+          onClick={() => { playSfx('click'); setShowAbout(true) }}
+          style={{
+            position: 'absolute', top: 16, right: 16, zIndex: 3,
+            background: 'rgba(255,255,255,0.75)',
+            backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
+            border: '1px solid rgba(47,120,200,0.6)',
+            borderRadius: 14, padding: '10px 20px',
+            color: '#173A5E', fontSize: 14, fontWeight: 700,
+            fontFamily: 'Nunito', cursor: 'pointer',
+            boxShadow: '0 4px 14px rgba(0,0,0,0.15)',
+            display: 'flex', alignItems: 'center', gap: 7,
+          }}>
+            About
+        </button>
+
+        {/* Modal "About" */}
+        {showAbout && (
+          <div
+            onClick={() => setShowAbout(false)}
+            style={{
+              position: 'fixed', inset: 0, zIndex: 60,
+              background: 'rgba(10,25,45,0.45)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: 24, animation: 'help-fade 0.2s ease',
+            }}>
+            <div
+              onClick={e => e.stopPropagation()}
+              style={{
+                position: 'relative',
+                background: 'rgba(255,255,255,0.92)',
+                backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
+                border: '1px solid rgba(47,120,200,0.4)',
+                borderRadius: 22, padding: '30px 36px',
+                width: '100%', maxWidth: 520,
+                boxShadow: '0 20px 60px rgba(0,0,0,0.35)',
+                fontFamily: 'Nunito',
+                animation: 'help-pop 0.25s ease',
+              }}>
+              {/* Cerrar */}
+              <button
+                onClick={() => { playSfx('click'); setShowAbout(false) }}
+                style={{
+                  position: 'absolute', top: 14, right: 16,
+                  background: 'transparent', border: 'none',
+                  color: '#173A5E', fontSize: 24, fontWeight: 700,
+                  cursor: 'pointer', lineHeight: 1,
+                }}>
+                ×
+              </button>
+
+              <h2 style={{
+                color: '#173A5E', fontSize: 26, fontWeight: 800,
+                margin: '0 0 16px', textAlign: 'center',
+              }}>
+                About
+              </h2>
+
+              {/* Contenido: rellenar más adelante */}
+              <p style={{
+                color: '#2b3a4a', fontSize: 15, lineHeight: 1.6,
+                margin: 0, textAlign: 'center',
+              }}>
+                {/* TODO: agregar aquí la información del proyecto */}
+                Information coming soon.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Aviso flotante: falta escribir el nombre (fuera del menú, centrado) */}
+        {nameError && (
+          <div style={{
+            position: 'fixed', inset: 0, zIndex: 50,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            paddingTop: 600,   // ← subí/bajá este número para mover el aviso verticalmente
+            pointerEvents: 'none',
+          }}>
+            <div style={{
+              background: 'rgba(255,255,255,0.6)',
+              backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+              border: '1px solid rgba(47,120,200,0.6)',
+              borderRadius: 20, padding: '18px 30px',
+              color: '#173A5E', fontSize: 16, fontWeight: 700,
+              fontFamily: 'Nunito', textAlign: 'center',
+              boxShadow: '0 10px 40px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.06)',
+              animation: 'name-warn 2.2s ease forwards',
+              whiteSpace: 'nowrap',
+            }}>
+              ✏️ Please enter your name first
+            </div>
+          </div>
+        )}
 
         {/* Logos institucionales (juntos, esquina superior izquierda) */}
         <div style={{
@@ -188,7 +295,7 @@ export default function App() {
               placeholder="Your name..."
               value={playerName}
               onChange={e => setPlayerName(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && playerName.trim() && setScreen('world')}
+              onKeyDown={e => { if (e.key === 'Enter') tryBeginJourney() }}
               style={{
                 width: '100%', padding: '10px 12px', borderRadius: 10,
                 border: '1px solid rgba(47,120,200,0.5)',
@@ -201,7 +308,7 @@ export default function App() {
 
             {/* Botón principal → juego principal (mundo) */}
             <button
-              onClick={() => { playSfx('click'); if (playerName.trim()) setScreen('world') }}
+              onClick={() => { playSfx('click'); tryBeginJourney() }}
               style={{
                 background: '#2F78C8', border: 'none', borderRadius: 13,
                 padding: '13px 0', fontSize: 16, color: '#fff',

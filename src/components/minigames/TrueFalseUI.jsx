@@ -3,6 +3,7 @@ import { playSfx } from '../../utils/sfx'
 import { scoreMessage } from '../../utils/scoreMessage'
 import { DEFAULT_PALETTE } from '../../theme/palettes'
 import Celebration from '../Celebration'
+import LogoBar from '../LogoBar'
 import { trueOrFalseTexts } from '../../content/grade4/trueFalseTexts'
 
 function pickText() {
@@ -46,8 +47,8 @@ export default function TrueFalseUI({ score, onScoreChange, palette = DEFAULT_PA
   // Estilo de cada botón (True/False) según el estado
   function btnStyle(value) {
     const base = {
-      flex: 1, padding: '18px 0', borderRadius: 16,
-      fontSize: 24, fontWeight: 800, fontFamily: 'Nunito',
+      flex: 1, padding: '13px 0', borderRadius: 14,
+      fontSize: 19, fontWeight: 800, fontFamily: 'Nunito',
       cursor: locked ? 'default' : 'pointer',
       transition: 'all 0.15s',
     }
@@ -79,6 +80,7 @@ export default function TrueFalseUI({ score, onScoreChange, palette = DEFAULT_PA
         }}>
           ⭐ {score} pts
         </div>
+        <LogoBar palette={palette} />
       </div>
     )
   }
@@ -86,14 +88,14 @@ export default function TrueFalseUI({ score, onScoreChange, palette = DEFAULT_PA
   return (
     <div style={{
       flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
-      background: bg, padding: '20px 24px 24px',
+      background: bg, padding: '20px 24px 76px',
       fontFamily: 'Nunito', gap: 16, position: 'relative', overflow: 'hidden',
     }}>
       {/* Blobs decorativos */}
       <div style={{ position: 'absolute', top: -55, right: -55, width: 210, height: 210, borderRadius: '50%', background: primary + '16', pointerEvents: 'none' }} />
       <div style={{ position: 'absolute', bottom: 30, left: -75, width: 250, height: 250, borderRadius: '50%', background: accent + '28', pointerEvents: 'none' }} />
 
-      <div style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: 760, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, flex: 1, minHeight: 0 }}>
+      <div style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: 980, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, flex: 1, minHeight: 0 }}>
 
         {/* Texto (título + párrafo) — desplazable */}
         <div style={{
@@ -132,6 +134,8 @@ export default function TrueFalseUI({ score, onScoreChange, palette = DEFAULT_PA
           <button onClick={() => handleAnswer(false)} style={btnStyle(false)}>✗ False</button>
         </div>
       </div>
+
+      <LogoBar palette={palette} />
     </div>
   )
 }

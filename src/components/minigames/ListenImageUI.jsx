@@ -3,6 +3,7 @@ import { playSfx } from '../../utils/sfx'
 import { scoreMessage } from '../../utils/scoreMessage'
 import { DEFAULT_PALETTE } from '../../theme/palettes'
 import Celebration from '../Celebration'
+import LogoBar from '../LogoBar'
 
 function generateQuestions(items, count) {
   const shuffled = [...items].sort(() => Math.random() - 0.5)
@@ -155,6 +156,7 @@ export default function ListenImageUI({ unitData, playerName, score, onScoreChan
         }}>
           ⭐ {score} pts
         </div>
+        <LogoBar palette={palette} />
       </div>
     )
   }
@@ -162,7 +164,7 @@ export default function ListenImageUI({ unitData, playerName, score, onScoreChan
   return (
     <div style={{
       flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
-      background: bg, padding: '20px 20px 20px',
+      background: bg, padding: '20px 20px 76px',
       fontFamily: 'Nunito', gap: 16, position: 'relative', overflow: 'hidden',
     }}>
 
@@ -263,6 +265,8 @@ export default function ListenImageUI({ unitData, playerName, score, onScoreChan
         </div>
 
       </div>
+
+      <LogoBar palette={palette} />
     </div>
   )
 }

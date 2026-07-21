@@ -54,11 +54,11 @@ export default function MinigameSelect({ playerName, onSelect, onBack }) {
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
-      padding: '40px 24px',
+      padding: '28px 24px 100px',
       fontFamily: 'Nunito',
     }}>
       {/* Header */}
-      <div style={{ width: '100%', maxWidth: 860, marginBottom: 36 }}>
+      <div style={{ width: '100%', maxWidth: 860, marginBottom: 18 }}>
         <button
           onClick={() => { playSfx('click'); onBack() }}
           style={{
@@ -70,7 +70,7 @@ export default function MinigameSelect({ playerName, onSelect, onBack }) {
             fontSize: 13,
             fontWeight: 700,
             cursor: 'pointer',
-            marginBottom: 28,
+            marginBottom: 12,
             fontFamily: 'Nunito',
           }}
         >
@@ -110,7 +110,7 @@ export default function MinigameSelect({ playerName, onSelect, onBack }) {
                 ? `1.5px solid ${P.primary}`
                 : '1.5px solid rgba(12,78,76,0.25)',
               borderRadius: 16,
-              padding: '24px 20px',
+              padding: '18px 20px',
               textAlign: 'left',
               cursor: mg.ready ? 'pointer' : 'not-allowed',
               transition: 'border-color 0.15s, background 0.15s, box-shadow 0.15s',
@@ -163,6 +163,25 @@ export default function MinigameSelect({ playerName, onSelect, onBack }) {
             </div>
           </button>
         ))}
+      </div>
+
+      {/* Barra inferior fija con los logos */}
+      <div style={{
+        position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 5,
+        background: P.soft,
+        boxShadow: '0 -3px 14px rgba(12,78,76,0.14)',
+        padding: '9px 20px',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        <div style={{
+          background: 'rgba(255,255,255,0.92)',
+          borderRadius: 12, padding: '6px 14px',
+          display: 'flex', alignItems: 'center', gap: 12,
+        }}>
+          <img src="/assets/logos/logo1.png" alt="" style={{ height: 40, display: 'block' }} />
+          <div style={{ width: 1, height: 28, background: 'rgba(0,0,0,0.12)' }} />
+          <img src="/assets/logos/logo2.png" alt="" style={{ height: 40, display: 'block' }} />
+        </div>
       </div>
     </div>
   )

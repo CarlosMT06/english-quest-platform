@@ -3,6 +3,7 @@ import { playSfx } from '../../utils/sfx'
 import { scoreMessage } from '../../utils/scoreMessage'
 import { DEFAULT_PALETTE } from '../../theme/palettes'
 import Celebration from '../Celebration'
+import LogoBar from '../LogoBar'
 
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
 const MAX_WRONG = 10
@@ -149,6 +150,7 @@ export default function HangmanUI({ unitData, playerName, score, onScoreChange, 
         }}>
           ⭐ {score} pts
         </div>
+        <LogoBar palette={palette} />
       </div>
     )
   }
@@ -156,9 +158,9 @@ export default function HangmanUI({ unitData, playerName, score, onScoreChange, 
   return (
     <div style={{
       flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
-      justifyContent: 'center',
-      background: bg, padding: '24px 40px 32px',
-      fontFamily: 'Nunito', gap: 32, position: 'relative', overflow: 'hidden',
+      justifyContent: 'flex-start',
+      background: bg, padding: '24px 40px 80px',
+      fontFamily: 'Nunito', gap: 20, position: 'relative', overflow: 'hidden',
     }}>
 
       {/* Decorative blobs */}
@@ -226,7 +228,7 @@ export default function HangmanUI({ unitData, playerName, score, onScoreChange, 
               padding: '6px 22px', borderRadius: 50,
               boxShadow: '0 3px 12px rgba(76,171,77,0.4)',
             }}>
-              ✅ Correct! +50 pts
+              ✅ Correct!
             </div>
           )}
           {roundStatus === 'lost' && (
@@ -275,6 +277,7 @@ export default function HangmanUI({ unitData, playerName, score, onScoreChange, 
         })}
       </div>
 
+      <LogoBar palette={palette} />
     </div>
   )
 }

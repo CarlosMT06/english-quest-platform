@@ -3,6 +3,7 @@ import { playSfx } from '../../utils/sfx'
 import { scoreMessage } from '../../utils/scoreMessage'
 import { DEFAULT_PALETTE } from '../../theme/palettes'
 import Celebration from '../Celebration'
+import LogoBar from '../LogoBar'
 
 const shuffle = arr => [...arr].sort(() => Math.random() - 0.5)
 
@@ -103,6 +104,7 @@ export default function MemoryMatchUI({ unitData, score, onScoreChange, palette 
         }}>
           ⭐ {score} pts
         </div>
+        <LogoBar palette={palette} />
       </div>
     )
   }
@@ -110,7 +112,7 @@ export default function MemoryMatchUI({ unitData, score, onScoreChange, palette 
   return (
     <div style={{
       flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
-      justifyContent: 'center', gap: 20,
+      justifyContent: 'flex-start', gap: 20,
       background: bg, padding: '20px 40px 28px',
       fontFamily: 'Nunito', position: 'relative', overflow: 'hidden',
     }}>
@@ -134,7 +136,7 @@ export default function MemoryMatchUI({ unitData, score, onScoreChange, palette 
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(4, 1fr)',
-        gap: 14, width: 'min(92vw, 720px)', zIndex: 1,
+        gap: 14, width: 'min(92vw, 680px)', zIndex: 1,
       }}>
         {cards.map((card, i) => {
           const isUp = flipped.includes(i) || matched.has(card.pairId)
@@ -173,7 +175,7 @@ export default function MemoryMatchUI({ unitData, score, onScoreChange, palette 
                 }}>
                   {card.type === 'image'
                     ? <img src={card.content} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                    : <span style={{ color: dark, fontSize: 14, fontWeight: 800, lineHeight: 1.25 }}>{card.content}</span>}
+                    : <span style={{ color: dark, fontSize: 18, fontWeight: 800, lineHeight: 1.25 }}>{card.content}</span>}
                 </div>
               </div>
             </div>
@@ -181,6 +183,7 @@ export default function MemoryMatchUI({ unitData, score, onScoreChange, palette 
         })}
       </div>
 
+      <LogoBar palette={palette} />
     </div>
   )
 }

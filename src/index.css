@@ -21,6 +21,13 @@ body {
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: none; }
 }
+/* Aviso "escribe tu nombre": aparece, se mantiene y se desvanece */
+@keyframes name-warn {
+  0%   { opacity: 0; transform: translateY(-6px); }
+  12%  { opacity: 1; transform: translateY(0); }
+  85%  { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-6px); }
+}
 
 /* ── ListenChoose animations ─────────────────────────────── */
 @keyframes lc-shake {
