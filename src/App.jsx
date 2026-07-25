@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import * as Phaser from 'phaser'
 import { StartScene } from './game/scenes/StartScene'
 import { GameScene  } from './game/scenes/GameScene'
+import { MapTestScene } from './game/scenes/MapTestScene'
 import ListenChooseUI from './components/minigames/ListenChooseUI'
 import ListenImageUI  from './components/minigames/ListenImageUI'
 import ListenPointOverlay from './components/minigames/ListenPointOverlay'
@@ -80,6 +81,28 @@ export default function App() {
     return () => game.destroy(true)
   }, [screen])
 
+  // Escena de prueba del mapa de Tiled (cámara libre)
+  useEffect(() => {
+    if (screen !== 'maptest') return
+
+    const config = {
+      type: Phaser.AUTO,
+      width: 960,
+      height: 640,
+      parent: 'maptest-phaser',
+      pixelArt: true,
+      physics: {
+        default: 'arcade',
+        arcade: { gravity: { y: 0 }, debug: false },
+      },
+      scale: { mode: Phaser.Scale.RESIZE },
+      scene: [MapTestScene],
+    }
+
+    const game = new Phaser.Game(config)
+    return () => game.destroy(true)
+  }, [screen])
+
   // El mundo (Phaser) dispara este evento para lanzar un minijuego incrustado
   useEffect(() => {
     if (screen !== 'world') return
@@ -132,6 +155,19 @@ export default function App() {
             display: 'flex', alignItems: 'center', gap: 7,
           }}>
             About
+        </button>
+
+        {/* Botón temporal: probar el mapa de Tiled */}
+        <button
+          onClick={() => setScreen('maptest')}
+          style={{
+            position: 'absolute', bottom: 16, right: 16, zIndex: 3,
+            background: 'rgba(0,0,0,0.65)', color: '#fff',
+            border: '1px solid rgba(255,255,255,0.4)', borderRadius: 10,
+            padding: '10px 18px', fontFamily: 'monospace', fontSize: 13,
+            fontWeight: 700, cursor: 'pointer',
+          }}>
+          Test Map
         </button>
 
         {/* Modal "About" */}
@@ -377,6 +413,26 @@ export default function App() {
             }}
           />
         )}
+      </div>
+    )
+  }
+
+  // ── Escena de prueba del mapa (temporal) ────────────────
+  if (screen === 'maptest') {
+    return (
+      <div style={{ width: '100vw', height: '100vh', overflow: 'hidden', position: 'relative', background: '#1a1a1a' }}>
+        <div id="maptest-phaser" style={{ position: 'absolute', inset: 0 }} />
+        <button
+          onClick={() => setScreen('start')}
+          style={{
+            position: 'fixed', top: 12, right: 12, zIndex: 100,
+            background: 'rgba(0,0,0,0.7)', color: '#fff',
+            border: '1px solid rgba(255,255,255,0.4)', borderRadius: 8,
+            padding: '8px 16px', fontFamily: 'monospace', fontSize: 13,
+            cursor: 'pointer',
+          }}>
+          ← Back
+        </button>
       </div>
     )
   }

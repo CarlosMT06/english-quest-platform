@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cp \"/c/Users/carlo/OneDrive/Documentos/TCU/english-quest-platform/tools/tiled-scripts/detect_bounding_box_all_tiles.js\" \"/c/Users/carlo/AppData/Local/Tiled/extensions/detect_bounding_box_all_tiles.js\" && echo OK)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\carlo\\AppData\\Local\\Tiled\\extensions"
+    ]
+  }
+}
