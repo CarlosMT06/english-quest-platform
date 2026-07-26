@@ -1,4 +1,5 @@
 import * as Phaser from 'phaser'
+import { playSfx } from '../../utils/sfx'
 
 const SPEED = 180
 
@@ -11,6 +12,9 @@ export class GameScene extends Phaser.Scene {
     this.load.tilemapTiledJSON('map',        '/assets/map/map.json')
     this.load.image('spritefusion',           '/assets/map/spritesheet.png')
     this.load.spritesheet('character',        '/assets/map/sprites/character.png', {
+      frameWidth: 32, frameHeight: 64,
+    })
+    this.load.spritesheet('character-idle',   '/assets/map/sprites/character_idle.png', {
       frameWidth: 32, frameHeight: 64,
     })
     this.load.spritesheet('doctor',           '/assets/map/sprites/doctor.png', {
@@ -238,6 +242,11 @@ export class GameScene extends Phaser.Scene {
     anims.create({ key: 'walk-up',    frames: anims.generateFrameNumbers('character', { start: 6,  end: 11 }), frameRate: 10, repeat: -1 })
     anims.create({ key: 'walk-left',  frames: anims.generateFrameNumbers('character', { start: 12, end: 17 }), frameRate: 10, repeat: -1 })
     anims.create({ key: 'walk-down',  frames: anims.generateFrameNumbers('character', { start: 18, end: 23 }), frameRate: 10, repeat: -1 })
+    // Idle: mismo layout que walk, más lento
+    anims.create({ key: 'idle-right', frames: anims.generateFrameNumbers('character-idle', { start: 0,  end: 5  }), frameRate: 6, repeat: -1 })
+    anims.create({ key: 'idle-up',    frames: anims.generateFrameNumbers('character-idle', { start: 6,  end: 11 }), frameRate: 6, repeat: -1 })
+    anims.create({ key: 'idle-left',  frames: anims.generateFrameNumbers('character-idle', { start: 12, end: 17 }), frameRate: 6, repeat: -1 })
+    anims.create({ key: 'idle-down',  frames: anims.generateFrameNumbers('character-idle', { start: 18, end: 23 }), frameRate: 6, repeat: -1 })
   }
 
   _createPlayer(map) {
@@ -247,13 +256,22 @@ export class GameScene extends Phaser.Scene {
       .sprite(
         7 * map.tileWidth  + map.tileWidth  / 2,
         18 * map.tileHeight + map.tileHeight / 2,
-        'character', 18,
+        'character-idle', 18,
       )
       .setDepth(9)
       .setCollideWorldBounds(true)
+    this.player.play('idle-down')   // arranca en reposo mirando abajo
 
     // Hitbox reducido al área de los pies (el sprite mide 32×64)
     this.player.body.setSize(24, 20).setOffset(4, 44)
+
+    // Sonido de pasos: al entrar en los frames donde el pie toca el suelo
+    // (índices 0 y 3 del ciclo de walk), solo durante la caminata.
+    const STEP_FRAMES = new Set([0, 3])
+    this.player.on('animationupdate', (anim, frame) => {
+      if (!anim.key.startsWith('walk-')) return
+      if (STEP_FRAMES.has(frame.index - 1)) playSfx('step')
+    })
   }
 
   _createProps(map) {
@@ -436,11 +454,10 @@ export class GameScene extends Phaser.Scene {
   update() {
     const { player, cursors, wasd } = this
 
-    // Durante el diálogo o el minijuego: jugador inmóvil
+    // Durante el diálogo o el minijuego: jugador inmóvil (en reposo animado)
     if (this.dialogOpen || this.minigameActive) {
       player.setVelocity(0)
-      player.anims.stop()
-      player.setFrame({ left: 12, right: 0, up: 6, down: 18 }[this.lastDir])
+      player.play('idle-' + this.lastDir, true)
       this._updateCamera()
       return
     }
@@ -466,8 +483,8 @@ export class GameScene extends Phaser.Scene {
     else if (up)    { player.play('walk-up',    true); this.lastDir = 'up'    }
     else if (down)  { player.play('walk-down',  true); this.lastDir = 'down'  }
     else {
-      player.anims.stop()
-      player.setFrame({ left: 12, right: 0, up: 6, down: 18 }[this.lastDir])
+      // Quieto: animación de reposo mirando la última dirección
+      player.play('idle-' + this.lastDir, true)
     }
 
     this._updateDoor()

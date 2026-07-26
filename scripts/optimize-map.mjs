@@ -151,6 +151,107 @@ for (const layer of map.layers) {
   })
 }
 
+// ── 4b. Objetos de la object layer "ysort" ──────────────────────
+// Empaqueta las imágenes únicas de los tile-objects en un atlas aparte
+// (tamaños variables) y genera un JSON con posición + colisión de base
+// de cada instancia, para el Y-sort en la escena.
+import { readdirSync } from 'fs'
+
+const OUT_OBJ_PNG  = join(MAPS_DIR, 'objects.png')
+const OUT_OBJ_JSON = join(MAPS_DIR, 'ysort.json')
+
+// Índice de todos los PNG bajo public/assets/maps (por basename) para resolver
+// las rutas del .tmj (que apuntan a Downloads con nombres de carpeta distintos).
+const pngIndex = {}
+function indexPngs(dir, rel = '') {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isDirectory()) indexPngs(join(dir, entry.name), join(rel, entry.name))
+    else if (entry.name.toLowerCase().endsWith('.png')) pngIndex[entry.name] = join(dir, entry.name)
+  }
+}
+indexPngs(MAPS_DIR)
+
+const ysortLayer = map.layers.find(l => l.type === 'objectgroup' && /ysort/i.test(l.name))
+if (ysortLayer) {
+  const origTilesets = JSON.parse(readFileSync(SRC, 'utf8')).tilesets
+    .slice().sort((a, b) => a.firstgid - b.firstgid)
+  const tsForGid = gid => {
+    let f = null
+    for (const t of origTilesets) { if (gid >= t.firstgid) f = t; else break }
+    return f
+  }
+
+  // Reunir imágenes únicas usadas y sus datos (tamaño + colisión)
+  const uniq = new Map()   // basename -> { path, w, h, coll:[{x,y,w,h}] }
+  const instances = []     // { name, x, y, w, h }  (x,y = esquina sup-izq en el mundo)
+  for (const o of ysortLayer.objects) {
+    if (!o.gid) continue
+    const base = (o.gid & FLIP_MASK) >>> 0
+    const ts = tsForGid(base)
+    if (!ts || !ts.tiles) continue
+    const tile = ts.tiles.find(t => t.id === base - ts.firstgid)
+    if (!tile || !tile.image) continue
+    const file = tile.image.split(/[\\/]/).pop()
+    if (!uniq.has(file)) {
+      // Conserva rectángulos, elipses y polígonos/polilíneas de la colisión.
+      const coll = (tile.objectgroup?.objects ?? []).map(c => {
+        const base = { x: c.x, y: c.y, w: c.width, h: c.height }
+        if (c.ellipse) base.ellipse = true
+        if (c.polygon) base.polygon = c.polygon
+        if (c.polyline) base.polyline = c.polyline
+        return base
+      })
+      uniq.set(file, { path: pngIndex[file], w: tile.imagewidth, h: tile.imageheight, coll })
+    }
+    // Propiedades personalizadas del objeto en Tiled (ej. onTop=true)
+    const props = {}
+    for (const p of (o.properties ?? [])) props[p.name] = p.value
+
+    // Tiled ancla tile-objects por la esquina inferior-izquierda:
+    // o.x = izquierda, o.y = base (inferior). Convertimos a sup-izq.
+    const inst = { name: file, x: o.x, y: o.y - o.height, w: o.width, h: o.height }
+    if (props.onTop) inst.onTop = true
+    instances.push(inst)
+  }
+
+  // Empaquetar las imágenes únicas en filas (bin-packing simple por filas)
+  const names = [...uniq.keys()]
+  const missing = names.filter(n => !uniq.get(n).path)
+  if (missing.length) console.warn(`⚠ Faltan ${missing.length} PNG de objetos:`, missing.slice(0, 5))
+
+  const MAXW = 2048
+  let x = 0, y = 0, rowH = 0, atlasObjW = 0
+  const frames = {}   // name -> {x,y,w,h}
+  for (const n of names) {
+    const { w, h } = uniq.get(n)
+    if (x + w > MAXW) { x = 0; y += rowH; rowH = 0 }
+    frames[n] = { x, y, w, h }
+    x += w; rowH = Math.max(rowH, h); atlasObjW = Math.max(atlasObjW, x)
+  }
+  const atlasObjH = y + rowH
+
+  const objComposite = names
+    .filter(n => uniq.get(n).path)
+    .map(n => ({ input: uniq.get(n).path, left: frames[n].x, top: frames[n].y }))
+
+  await sharp({
+    create: { width: atlasObjW, height: atlasObjH, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
+  }).composite(objComposite).png().toFile(OUT_OBJ_PNG)
+
+  // JSON: frames del atlas + colisiones por imagen + instancias
+  const ysortData = {
+    atlas: 'objects.png',
+    frames: Object.fromEntries(names.map(n => [n, { ...frames[n], coll: uniq.get(n).coll }])),
+    instances,
+  }
+  writeFileSync(OUT_OBJ_JSON, JSON.stringify(ysortData))
+
+  const mb2 = p => (statSync(p).size / 1024 / 1024).toFixed(2)
+  console.log(`\nObjetos ysort:       ${instances.length} instancias · ${names.length} imágenes únicas`)
+  console.log(`objects.png:         ${atlasObjW}x${atlasObjH} px · ${mb2(OUT_OBJ_PNG)} MB`)
+  console.log(`ysort.json:          ${mb2(OUT_OBJ_JSON)} MB`)
+}
+
 // ── 5. Escribir minificado ───────────────────────────────────────
 writeFileSync(OUT_MAP, JSON.stringify(map))
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import * as Phaser from 'phaser'
 import { StartScene } from './game/scenes/StartScene'
 import { GameScene  } from './game/scenes/GameScene'
@@ -27,11 +27,36 @@ export default function App() {
   const [showHelp, setShowHelp]             = useState(false)
   const [nameError, setNameError]           = useState(false)
   const [showAbout, setShowAbout]           = useState(false)
+  // Posición de retorno del jugador en la ciudad (al volver de un interior).
+  const [cityReturn, setCityReturn]         = useState(null)
+  // Overlay de fundido a negro para transiciones ciudad ↔ interior.
+  const [fading, setFading]                 = useState(false)
 
-  // Intenta ir al mundo; si no hay nombre, muestra un aviso breve.
+  // Música de fondo en loop (volumen bajo). Vive fuera de Phaser para no
+  // cortarse al cambiar de escena. NO suena en la pantalla de inicio (esa
+  // tiene su propia música en StartScene) ni en el interior del hospital.
+  const musicRef = useRef(null)
+  useEffect(() => {
+    const music = new Audio('/assets/sfx/music.mp3')
+    music.loop = true
+    music.volume = 0.12
+    musicRef.current = music
+    return () => music.pause()
+  }, [])
+
+  // Reproduce la música solo fuera del inicio y del interior.
+  useEffect(() => {
+    const music = musicRef.current
+    if (!music) return
+    const silent = screen === 'start' || screen === 'world'
+    if (silent) music.pause()
+    else music.play().catch(() => {})
+  }, [screen])
+
+  // Intenta ir a la ciudad; si no hay nombre, muestra un aviso breve.
   function tryBeginJourney() {
     if (playerName.trim()) {
-      setScreen('world')
+      setScreen('maptest')
     } else {
       setNameError(true)
       setTimeout(() => setNameError(false), 2200)
@@ -92,15 +117,41 @@ export default function App() {
       parent: 'maptest-phaser',
       pixelArt: true,
       physics: {
-        default: 'arcade',
-        arcade: { gravity: { y: 0 }, debug: false },
+        default: 'matter',
+        matter: { gravity: { x: 0, y: 0 }, debug: false },
       },
       scale: { mode: Phaser.Scale.RESIZE },
       scene: [MapTestScene],
     }
 
     const game = new Phaser.Game(config)
+    // Arranca la escena con la posición de retorno (si venimos de un interior)
+    game.scene.start('MapTestScene', cityReturn ? { spawn: cityReturn } : undefined)
     return () => game.destroy(true)
+  }, [screen])
+
+  // Cambia de pantalla con un fundido a negro (para transiciones de escenario).
+  function fadeToScreen(next) {
+    setFading(true)
+    setTimeout(() => {
+      setScreen(next)
+      // Deja el overlay negro un instante y luego lo desvanece
+      setTimeout(() => setFading(false), 80)
+    }, 460)
+  }
+
+  // Ciudad → interior: al pisar una puerta (trigger) se cambia de escenario.
+  useEffect(() => {
+    if (screen !== 'maptest') return
+    const onEnter = (e) => {
+      const { target, returnX, returnY } = e.detail ?? {}
+      // Guarda dónde reaparecer en la ciudad al volver
+      if (returnX != null) setCityReturn({ x: returnX, y: returnY })
+      // Router de destinos: por ahora "hospital" abre el interior (GameScene)
+      if (target === 'hospital') fadeToScreen('world')
+    }
+    window.addEventListener('enter-interior', onEnter)
+    return () => window.removeEventListener('enter-interior', onEnter)
   }, [screen])
 
   // El mundo (Phaser) dispara este evento para lanzar un minijuego incrustado
@@ -155,19 +206,6 @@ export default function App() {
             display: 'flex', alignItems: 'center', gap: 7,
           }}>
             About
-        </button>
-
-        {/* Botón temporal: probar el mapa de Tiled */}
-        <button
-          onClick={() => setScreen('maptest')}
-          style={{
-            position: 'absolute', bottom: 16, right: 16, zIndex: 3,
-            background: 'rgba(0,0,0,0.65)', color: '#fff',
-            border: '1px solid rgba(255,255,255,0.4)', borderRadius: 10,
-            padding: '10px 18px', fontFamily: 'monospace', fontSize: 13,
-            fontWeight: 700, cursor: 'pointer',
-          }}>
-          Test Map
         </button>
 
         {/* Modal "About" */}
@@ -404,6 +442,22 @@ export default function App() {
     return (
       <div style={{ width: '100vw', height: '100vh', overflow: 'hidden', position: 'relative', background: '#1a1a1a' }}>
         <div id="world-phaser" style={{ position: 'absolute', inset: 0 }} />
+        {/* Salir del interior → volver a la ciudad en la posición guardada.
+            Solo aparece si entramos desde la ciudad (hay retorno guardado). */}
+        {cityReturn && (
+          <button
+            onClick={() => fadeToScreen('maptest')}
+            style={{
+              position: 'fixed', top: 12, left: 12, zIndex: 100,
+              background: 'rgba(0,0,0,0.7)', color: '#fff',
+              border: '1px solid rgba(255,255,255,0.4)', borderRadius: 8,
+              padding: '8px 16px', fontFamily: 'Nunito', fontSize: 14,
+              fontWeight: 700, cursor: 'pointer',
+            }}>
+            ← Back to the City
+          </button>
+        )}
+        <FadeOverlay show={fading} />
         {worldMinigame === 'listen-image' && (
           <ListenPointOverlay
             unitData={unit4}
@@ -433,6 +487,7 @@ export default function App() {
           }}>
           ← Back
         </button>
+        <FadeOverlay show={fading} />
       </div>
     )
   }
@@ -659,5 +714,18 @@ export default function App() {
       )}
 
     </div>
+  )
+}
+
+// Overlay de fundido a negro para transiciones entre escenarios.
+function FadeOverlay({ show }) {
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 9000,
+      background: '#000',
+      opacity: show ? 1 : 0,
+      transition: 'opacity 0.46s ease',
+      pointerEvents: show ? 'auto' : 'none',
+    }} />
   )
 }
