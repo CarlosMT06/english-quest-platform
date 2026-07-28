@@ -13,23 +13,34 @@
 //      con su id remapeado al nuevo atlas.
 //   5. Minifica el JSON.
 //
-// Deja intacto map.tmj (fuente editable en Tiled). Genera:
-//   - public/assets/maps/map.optimized.tmj
-//   - public/assets/maps/packed-tiles.png
+// Deja intacto el .tmj fuente (editable en Tiled). Genera, por cada mapa
+// <base>:  <base>.optimized.tmj, <base>-packed.png, <base>-objects.png,
+//          <base>-ysort.json
 //
-// Uso:  node scripts/optimize-map.mjs   (reejecutar tras cada reexport de Tiled)
+// Uso:
+//   node scripts/optimize-map.mjs            → procesa el mapa por defecto (map.tmj)
+//   node scripts/optimize-map.mjs InteriorHospital.tmj  → procesa ese mapa
+//   (reejecutar tras cada reexport de Tiled)
 
 import { readFileSync, writeFileSync, statSync, existsSync } from 'fs'
 import { fileURLToPath } from 'url'
-import { dirname, join } from 'path'
+import { dirname, join, basename } from 'path'
 import sharp from 'sharp'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const MAPS_DIR = join(__dirname, '..', 'public', 'assets', 'maps')
-const SRC = join(MAPS_DIR, 'map.tmj')
-const OUT_MAP = join(MAPS_DIR, 'map.optimized.tmj')
-const OUT_PNG = join(MAPS_DIR, 'packed-tiles.png')
-const PACKED_NAME = 'packed-tiles'
+
+// Mapa a procesar: argumento o "map.tmj" por defecto.
+const SRC_ARG = process.argv[2] || 'map.tmj'
+const BASE = basename(SRC_ARG).replace(/\.tmj$|\.json$/i, '')
+// Compatibilidad: el mapa "map" conserva los nombres antiguos (packed-tiles, etc.)
+const isDefault = BASE === 'map'
+const PACKED_NAME = isDefault ? 'packed-tiles' : `${BASE}-packed`
+const OBJ_NAME    = isDefault ? 'objects'      : `${BASE}-objects`
+
+const SRC     = join(MAPS_DIR, SRC_ARG)
+const OUT_MAP = join(MAPS_DIR, `${BASE}.optimized.tmj`)
+const OUT_PNG = join(MAPS_DIR, `${PACKED_NAME}.png`)
 
 const TW = 32, TH = 32   // tamaño de tile
 const FLIP_MASK = ~(0x80000000 | 0x40000000 | 0x20000000 | 0x10000000)
@@ -157,8 +168,8 @@ for (const layer of map.layers) {
 // de cada instancia, para el Y-sort en la escena.
 import { readdirSync } from 'fs'
 
-const OUT_OBJ_PNG  = join(MAPS_DIR, 'objects.png')
-const OUT_OBJ_JSON = join(MAPS_DIR, 'ysort.json')
+const OUT_OBJ_PNG  = join(MAPS_DIR, `${OBJ_NAME}.png`)
+const OUT_OBJ_JSON = join(MAPS_DIR, `${isDefault ? 'ysort' : BASE + '-ysort'}.json`)
 
 // Índice de todos los PNG bajo public/assets/maps (por basename) para resolver
 // las rutas del .tmj (que apuntan a Downloads con nombres de carpeta distintos).
@@ -171,8 +182,12 @@ function indexPngs(dir, rel = '') {
 }
 indexPngs(MAPS_DIR)
 
-const ysortLayer = map.layers.find(l => l.type === 'objectgroup' && /ysort/i.test(l.name))
-if (ysortLayer) {
+// Procesa las object layers de objetos: "ysort" (normal) y "ysortTop"
+// (siempre por encima de ysort). Todas las instancias van a un mismo atlas.
+const objLayers = map.layers.filter(
+  l => l.type === 'objectgroup' && /^ysort(top)?$/i.test(l.name),
+)
+if (objLayers.length) {
   const origTilesets = JSON.parse(readFileSync(SRC, 'utf8')).tilesets
     .slice().sort((a, b) => a.firstgid - b.firstgid)
   const tsForGid = gid => {
@@ -181,37 +196,67 @@ if (ysortLayer) {
     return f
   }
 
-  // Reunir imágenes únicas usadas y sus datos (tamaño + colisión)
-  const uniq = new Map()   // basename -> { path, w, h, coll:[{x,y,w,h}] }
-  const instances = []     // { name, x, y, w, h }  (x,y = esquina sup-izq en el mundo)
-  for (const o of ysortLayer.objects) {
-    if (!o.gid) continue
-    const base = (o.gid & FLIP_MASK) >>> 0
-    const ts = tsForGid(base)
-    if (!ts || !ts.tiles) continue
-    const tile = ts.tiles.find(t => t.id === base - ts.firstgid)
-    if (!tile || !tile.image) continue
-    const file = tile.image.split(/[\\/]/).pop()
-    if (!uniq.has(file)) {
-      // Conserva rectángulos, elipses y polígonos/polilíneas de la colisión.
-      const coll = (tile.objectgroup?.objects ?? []).map(c => {
-        const base = { x: c.x, y: c.y, w: c.width, h: c.height }
-        if (c.ellipse) base.ellipse = true
-        if (c.polygon) base.polygon = c.polygon
-        if (c.polyline) base.polyline = c.polyline
-        return base
-      })
-      uniq.set(file, { path: pngIndex[file], w: tile.imagewidth, h: tile.imageheight, coll })
-    }
-    // Propiedades personalizadas del objeto en Tiled (ej. onTop=true)
-    const props = {}
-    for (const p of (o.properties ?? [])) props[p.name] = p.value
+  const collForTile = tile => (tile?.objectgroup?.objects ?? []).map(c => {
+    const b = { x: c.x, y: c.y, w: c.width, h: c.height }
+    if (c.ellipse) b.ellipse = true
+    if (c.polygon) b.polygon = c.polygon
+    if (c.polyline) b.polyline = c.polyline
+    return b
+  })
 
-    // Tiled ancla tile-objects por la esquina inferior-izquierda:
-    // o.x = izquierda, o.y = base (inferior). Convertimos a sup-izq.
-    const inst = { name: file, x: o.x, y: o.y - o.height, w: o.width, h: o.height }
-    if (props.onTop) inst.onTop = true
-    instances.push(inst)
+  // Reunir imágenes únicas usadas y sus datos (tamaño + colisión + recorte).
+  // Soporta dos orígenes de tile-object:
+  //   - Collection of Images: cada tile tiene su propia `image`.
+  //   - Tileset en cuadrícula: se recorta el tile del PNG del tileset por su
+  //     posición en el grid.
+  const uniq = new Map()   // name -> { path, sx, sy, w, h, coll }
+  const instances = []
+  for (const layer of objLayers) {
+    const isTop = /top$/i.test(layer.name)
+    for (const o of layer.objects) {
+      if (!o.gid) continue
+      const base = (o.gid & FLIP_MASK) >>> 0
+      const ts = tsForGid(base)
+      if (!ts) continue
+      const localId = base - ts.firstgid
+      const tile = ts.tiles?.find(t => t.id === localId)
+
+      let name
+      if (tile?.image) {
+        // Collection of Images: recorte completo de su PNG propio
+        name = tile.image.split(/[\\/]/).pop()
+        if (!uniq.has(name)) {
+          uniq.set(name, {
+            path: pngIndex[name], sx: 0, sy: 0,
+            w: tile.imagewidth, h: tile.imageheight, coll: collForTile(tile),
+          })
+        }
+      } else if (ts.image) {
+        // Tileset en cuadrícula: recorte por posición del tile en el grid
+        const cols = ts.columns
+        const sx = (ts.margin ?? 0) + (localId % cols) * (TW + (ts.spacing ?? 0))
+        const sy = (ts.margin ?? 0) + Math.floor(localId / cols) * (TH + (ts.spacing ?? 0))
+        const png = ts.image.split(/[\\/]/).pop()
+        name = `${ts.name}#${localId}`   // id único de este tile del tileset
+        if (!uniq.has(name)) {
+          uniq.set(name, {
+            path: pngIndex[png], sx, sy, w: TW, h: TH, coll: collForTile(tile),
+          })
+        }
+      } else {
+        continue
+      }
+
+      const props = {}
+      for (const p of (o.properties ?? [])) props[p.name] = p.value
+
+      // Tiled ancla tile-objects por la esquina inferior-izquierda:
+      // o.x = izquierda, o.y = base (inferior). Convertimos a sup-izq.
+      const inst = { name, x: o.x, y: o.y - o.height, w: o.width, h: o.height }
+      if (isTop) inst.top = true
+      if (props.onTop) inst.onTop = true
+      instances.push(inst)
+    }
   }
 
   // Empaquetar las imágenes únicas en filas (bin-packing simple por filas)
@@ -230,9 +275,23 @@ if (ysortLayer) {
   }
   const atlasObjH = y + rowH
 
-  const objComposite = names
-    .filter(n => uniq.get(n).path)
-    .map(n => ({ input: uniq.get(n).path, left: frames[n].x, top: frames[n].y }))
+  // Cada objeto puede ser imagen completa (Collection) o un recorte del PNG del
+  // tileset (cuadrícula). Preparamos el buffer correspondiente.
+  const objComposite = []
+  for (const n of names) {
+    const u = uniq.get(n)
+    if (!u.path) continue
+    let input
+    if (u.sx === 0 && u.sy === 0 && u.w >= 0 /* Collection: imagen entera */
+        && !n.includes('#')) {
+      input = u.path
+    } else {
+      input = await sharp(u.path)
+        .extract({ left: u.sx, top: u.sy, width: u.w, height: u.h })
+        .png().toBuffer()
+    }
+    objComposite.push({ input, left: frames[n].x, top: frames[n].y })
+  }
 
   await sharp({
     create: { width: atlasObjW, height: atlasObjH, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
@@ -240,7 +299,7 @@ if (ysortLayer) {
 
   // JSON: frames del atlas + colisiones por imagen + instancias
   const ysortData = {
-    atlas: 'objects.png',
+    atlas: `${OBJ_NAME}.png`,
     frames: Object.fromEntries(names.map(n => [n, { ...frames[n], coll: uniq.get(n).coll }])),
     instances,
   }

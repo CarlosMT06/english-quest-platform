@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import * as Phaser from 'phaser'
 import { StartScene } from './game/scenes/StartScene'
+// GameScene: versión anterior del interior. Ya no se monta, pero se CONSERVA
+// (contiene NPC/diálogo/minijuego pendientes de reintegrar). No quitar.
 import { GameScene  } from './game/scenes/GameScene'
 import { MapTestScene } from './game/scenes/MapTestScene'
+import { InteriorHospitalScene } from './game/scenes/InteriorHospitalScene'
 import ListenChooseUI from './components/minigames/ListenChooseUI'
 import ListenImageUI  from './components/minigames/ListenImageUI'
 import ListenPointOverlay from './components/minigames/ListenPointOverlay'
@@ -93,13 +96,13 @@ export default function App() {
       parent: 'world-phaser',
       pixelArt: true,
       physics: {
-        default: 'arcade',
-        arcade: { gravity: { y: 0 }, debug: false },
+        default: 'matter',
+        matter: { gravity: { x: 0, y: 0 }, debug: false },
       },
       scale: {
         mode: Phaser.Scale.RESIZE,
       },
-      scene: [GameScene],
+      scene: [InteriorHospitalScene],
     }
 
     const game = new Phaser.Game(config)
@@ -140,15 +143,20 @@ export default function App() {
     }, 460)
   }
 
-  // Ciudad → interior: al pisar una puerta (trigger) se cambia de escenario.
+  // Transiciones entre escenarios al pisar un trigger (ciudad ↔ interior).
   useEffect(() => {
-    if (screen !== 'maptest') return
+    if (screen !== 'maptest' && screen !== 'world') return
     const onEnter = (e) => {
       const { target, returnX, returnY } = e.detail ?? {}
-      // Guarda dónde reaparecer en la ciudad al volver
-      if (returnX != null) setCityReturn({ x: returnX, y: returnY })
-      // Router de destinos: por ahora "hospital" abre el interior (GameScene)
-      if (target === 'hospital') fadeToScreen('world')
+      // Router de destinos:
+      if (target === 'hospital') {
+        // Ciudad → interior. Guarda dónde reaparecer al volver.
+        if (returnX != null) setCityReturn({ x: returnX, y: returnY })
+        fadeToScreen('world')
+      } else if (target === 'city' || target === 'exit') {
+        // Interior → ciudad (a la posición guardada frente a la puerta).
+        fadeToScreen('maptest')
+      }
     }
     window.addEventListener('enter-interior', onEnter)
     return () => window.removeEventListener('enter-interior', onEnter)
@@ -442,21 +450,7 @@ export default function App() {
     return (
       <div style={{ width: '100vw', height: '100vh', overflow: 'hidden', position: 'relative', background: '#1a1a1a' }}>
         <div id="world-phaser" style={{ position: 'absolute', inset: 0 }} />
-        {/* Salir del interior → volver a la ciudad en la posición guardada.
-            Solo aparece si entramos desde la ciudad (hay retorno guardado). */}
-        {cityReturn && (
-          <button
-            onClick={() => fadeToScreen('maptest')}
-            style={{
-              position: 'fixed', top: 12, left: 12, zIndex: 100,
-              background: 'rgba(0,0,0,0.7)', color: '#fff',
-              border: '1px solid rgba(255,255,255,0.4)', borderRadius: 8,
-              padding: '8px 16px', fontFamily: 'Nunito', fontSize: 14,
-              fontWeight: 700, cursor: 'pointer',
-            }}>
-            ← Back to the City
-          </button>
-        )}
+        {/* La salida del interior se hace pisando el trigger `target: city`. */}
         <FadeOverlay show={fading} />
         {worldMinigame === 'listen-image' && (
           <ListenPointOverlay

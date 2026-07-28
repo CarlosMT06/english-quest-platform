@@ -1,6 +1,22 @@
 import * as Phaser from 'phaser'
 import { playSfx } from '../../utils/sfx'
 
+// ─────────────────────────────────────────────────────────────────────────────
+// VERSIÓN ANTERIOR DEL INTERIOR — CONSERVAR (pendiente de reintegrar).
+//
+// Esta escena ya NO se usa en el juego (el interior actual es
+// InteriorHospitalScene, sobre MapTestScene con Tiled + Matter). Se conserva
+// intacta como referencia para reincorporar a la nueva versión:
+//   - El NPC "doctor" (sprite, animación de proximidad).
+//   - El sistema de cuadros de diálogo (dialog-box, rostro animado, paginado
+//     por SPACE): setDialogText / _nextDialogPage / dialogHud.
+//   - El minijuego integrado que se lanzaba desde el mundo (minigameActive,
+//     evento 'start-minigame' / 'minigame-ended').
+//   - Animaciones y props del escenario (_createProps, puertas, cámara de
+//     seguridad).
+// No borrar sin migrar antes estas piezas al nuevo interior.
+// ─────────────────────────────────────────────────────────────────────────────
+
 const SPEED = 180
 
 export class GameScene extends Phaser.Scene {

@@ -13,39 +13,60 @@ const PACKED    = 'packed-tiles'   // tileset empaquetado
 const CHAR      = 'character'       // sprite del jugador — caminata (32×64)
 const CHAR_IDLE = 'character-idle'  // sprite del jugador — reposo (32×64)
 const SPEED  = 4.2                  // velocidad del jugador (px/paso Matter)
-const SPAWN  = { x: 40, y: 40 }     // tile de aparición
 const ZOOM   = 1.5                  // acercamiento de la cámara
 
 export class MapTestScene extends Phaser.Scene {
-  constructor() {
-    super('MapTestScene')
+  constructor(key = 'MapTestScene') {
+    super(key)
+  }
+
+  // Config de archivos del mapa. Las subclases (interiores) la sobreescriben.
+  // Todos los nombres de recurso son únicos por escena para no colisionar.
+  mapConfig() {
+    return {
+      mapKey:  'city-map',
+      tmj:     '/assets/maps/map.optimized.tmj',
+      // tsName = nombre del tileset TAL COMO está en el .optimized.tmj
+      // (lo define el script). key = key de la textura cargada en Phaser.
+      packed:  { tsName: 'packed-tiles', key: 'city-packed', png: '/assets/maps/packed-tiles.png' },
+      objects: { key: 'city-objects', png: '/assets/maps/objects.png' },
+      ysort:   { key: 'city-ysort', json: '/assets/maps/ysort.json' },
+      spawn:   { x: 40, y: 40 },   // tile por defecto
+      speed:   SPEED,              // velocidad del jugador
+    }
   }
 
   // Datos opcionales al entrar: { spawn: {x, y} } en píxeles del mundo, para
   // reaparecer frente a la puerta al volver de un interior. Si no viene, se usa
-  // el SPAWN por defecto.
+  // el spawn por defecto de la config.
   init(data) {
     this._returnSpawn = data?.spawn ?? null
+    this._cfg = this.mapConfig()
   }
 
   preload() {
-    this.load.tilemapTiledJSON('testmap', '/assets/maps/map.optimized.tmj')
-    this.load.image(PACKED, `/assets/maps/${PACKED}.png`)
-    this.load.image('objects', '/assets/maps/objects.png')
-    this.load.json('ysort', '/assets/maps/ysort.json')
-    this.load.spritesheet(CHAR, '/assets/map/sprites/character.png', {
-      frameWidth: 32, frameHeight: 64,
-    })
-    this.load.spritesheet(CHAR_IDLE, '/assets/map/sprites/character_idle.png', {
-      frameWidth: 32, frameHeight: 64,
-    })
+    const c = this._cfg
+    this.load.tilemapTiledJSON(c.mapKey, c.tmj)
+    this.load.image(c.packed.key, c.packed.png)
+    this.load.image(c.objects.key, c.objects.png)
+    this.load.json(c.ysort.key, c.ysort.json)
+    if (!this.textures.exists(CHAR)) {
+      this.load.spritesheet(CHAR, '/assets/map/sprites/character.png', {
+        frameWidth: 32, frameHeight: 64,
+      })
+      this.load.spritesheet(CHAR_IDLE, '/assets/map/sprites/character_idle.png', {
+        frameWidth: 32, frameHeight: 64,
+      })
+    }
   }
 
   create() {
-    const map = this.make.tilemap({ key: 'testmap' })
+    const c = this._cfg
+    const map = this.make.tilemap({ key: c.mapKey })
     this.map = map
 
-    const tileset = map.addTilesetImage(PACKED, PACKED)
+    // 1º arg: nombre del tileset en el .tmj; 2º arg: key de la textura cargada.
+    const tileset = map.addTilesetImage(c.packed.tsName, c.packed.key)
 
     // ── Capas de tiles en orden, con profundidad ─────────────────
     // Cada capa marcada en Tiled con la propiedad booleana `above=true` (y las
@@ -88,7 +109,8 @@ export class MapTestScene extends Phaser.Scene {
     const mapW = map.widthInPixels
     const mapH = map.heightInPixels
     this.matter.world.setBounds(0, 0, mapW, mapH)
-    this.cameras.main.setBounds(0, 0, mapW, mapH)
+    // Nota: NO usar cam.setBounds — impediría el scroll negativo necesario para
+    // centrar mapas más pequeños que la pantalla. El clamp lo hace _updateCamera.
 
     // ── Animaciones del personaje ────────────────────────────────
     const { anims } = this
@@ -107,8 +129,8 @@ export class MapTestScene extends Phaser.Scene {
     // pies. Creamos el cuerpo con un yOffset de render para que el sprite se
     // dibuje 22 px por encima del centro del cuerpo (pies abajo, cuerpo arriba).
     this.lastDir = 'down'
-    const spawnX = this._returnSpawn?.x ?? (SPAWN.x * map.tileWidth  + map.tileWidth  / 2)
-    const spawnY = this._returnSpawn?.y ?? (SPAWN.y * map.tileHeight + map.tileHeight / 2)
+    const spawnX = this._returnSpawn?.x ?? (c.spawn.x * map.tileWidth  + map.tileWidth  / 2)
+    const spawnY = this._returnSpawn?.y ?? (c.spawn.y * map.tileHeight + map.tileHeight / 2)
     const FEET_H = 18, FEET_W = 24
     this._bodyOffsetY = 22   // distancia del centro del cuerpo (pies) al centro del sprite
 
@@ -135,9 +157,13 @@ export class MapTestScene extends Phaser.Scene {
       if (STEP_FRAMES.has(frame.index - 1)) playSfx('step')
     })
 
-    // ── Cámara sigue al jugador ──────────────────────────────────
-    this.cameras.main.startFollow(this.player, true, 0.12, 0.12)
+    // ── Cámara ───────────────────────────────────────────────────
+    // Control manual (como GameScene): sigue al jugador con clamp a los bordes;
+    // si el mapa es más chico que el viewport en un eje, centra el mapa en él.
     this.cameras.main.setZoom(ZOOM)
+    this._mapW = map.widthInPixels
+    this._mapH = map.heightInPixels
+    this._updateCamera()
 
     // ── Triggers de entrada a interiores (object layer "triggers") ─
     // Cada rectángulo con propiedad `target` es una puerta. Al entrar el
@@ -154,6 +180,26 @@ export class MapTestScene extends Phaser.Scene {
       right: Phaser.Input.Keyboard.KeyCodes.D,
     })
 
+  }
+
+  // Cámara: sigue al jugador con clamp a los bordes del mapa; si el mapa es más
+  // pequeño que el viewport en un eje, centra el mapa en ese eje. (Igual que
+  // GameScene: control manual del scroll, correcto con zoom.)
+  _updateCamera() {
+    const cam   = this.cameras.main
+    const zoom  = cam.zoom
+    const halfW = cam.width  / (2 * zoom)
+    const halfH = cam.height / (2 * zoom)
+
+    const midX = this._mapW <= halfW * 2
+      ? this._mapW / 2
+      : Phaser.Math.Clamp(this.player.x, halfW, this._mapW - halfW)
+    const midY = this._mapH <= halfH * 2
+      ? this._mapH / 2
+      : Phaser.Math.Clamp(this.player.y, halfH, this._mapH - halfH)
+
+    cam.scrollX = midX - cam.width  / 2
+    cam.scrollY = midY - cam.height / 2
   }
 
   // Lee la object layer "triggers": rectángulos con propiedad `target`.
@@ -252,19 +298,25 @@ export class MapTestScene extends Phaser.Scene {
     return c.y + (c.h ?? 0)   // rect / elipse: y + alto
   }
 
-  // Instancia los objetos de "ysort" como imágenes del atlas objects.png,
+  // Instancia los objetos de "ysort"/"ysortTop" como imágenes del atlas,
   // con Y-sort por su base y su colisión (rect/polígono/círculo) en Matter.
   _buildYsortObjects() {
-    const data = this.cache.json.get('ysort')
+    const c = this._cfg
+    const data = this.cache.json.get(c.ysort.key)
     if (!data) return
 
-    const tex = this.textures.get('objects')
+    const atlasKey = c.objects.key
+    const tex = this.textures.get(atlasKey)
     for (const [name, f] of Object.entries(data.frames)) {
       if (!tex.has(name)) tex.add(name, 0, f.x, f.y, f.w, f.h)
     }
 
+    // Banda de depth de ysortTop / onTop: por encima del Y-sort normal pero por
+    // debajo de las capas de tiles altas (paredes `above`).
+    const topBase = this.YSORT_BASE + this.map.heightInPixels + 50
+
     for (const inst of data.instances) {
-      const spr = this.add.image(inst.x, inst.y, 'objects', inst.name).setOrigin(0, 0)
+      const spr = this.add.image(inst.x, inst.y, atlasKey, inst.name).setOrigin(0, 0)
       const frame = data.frames[inst.name]
 
       const colls = frame.coll ?? []
@@ -272,6 +324,12 @@ export class MapTestScene extends Phaser.Scene {
       if (inst.onTop) {
         // Objeto de azotea / techo: siempre por encima de todo (sin Y-sort).
         spr.setDepth(this.YSORT_BASE + this.map.heightInPixels + 200)
+      } else if (inst.top) {
+        // Capa ysortTop: siempre sobre los objetos ysort normales, pero se
+        // ordenan entre sí por su base Y.
+        let baseY = inst.y + inst.h
+        if (colls.length) baseY = inst.y + Math.max(...colls.map(cc => this._collBottom(cc)))
+        spr.setDepth(topBase + baseY)
       } else {
         // Base del Y-sort = borde INFERIOR de la colisión (donde el objeto toca
         // el suelo), no el borde de la imagen — que puede tener padding abajo y
@@ -304,13 +362,14 @@ export class MapTestScene extends Phaser.Scene {
     const up    = cursors.up.isDown    || wasd.up.isDown
     const down  = cursors.down.isDown  || wasd.down.isDown
 
+    const speed = this._cfg.speed
     let vx = 0, vy = 0
-    if (left)  vx = -SPEED
-    else if (right) vx = SPEED
-    if (up)    vy = -SPEED
-    else if (down)  vy = SPEED
+    if (left)  vx = -speed
+    else if (right) vx = speed
+    if (up)    vy = -speed
+    else if (down)  vy = speed
     // Normaliza diagonal para no ir más rápido
-    if (vx && vy) { const k = SPEED / Math.hypot(vx, vy); vx *= k; vy *= k }
+    if (vx && vy) { const k = speed / Math.hypot(vx, vy); vx *= k; vy *= k }
     player.setVelocity(vx, vy)
 
     if (left)       { player.play('walk-left',  true); this.lastDir = 'left'  }
@@ -324,6 +383,9 @@ export class MapTestScene extends Phaser.Scene {
 
     // Y-sort del jugador según la Y de sus pies (posición del cuerpo Matter)
     player.setDepth(this.YSORT_BASE + player.y)
+
+    // Cámara (sigue/centra según el tamaño del mapa vs. viewport)
+    this._updateCamera()
 
     // Detección de triggers de entrada (por la posición de los pies)
     this._checkTriggers()

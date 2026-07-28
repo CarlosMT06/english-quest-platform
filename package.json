@@ -8,7 +8,8 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "map": "node scripts/optimize-map.mjs"
+    "map": "node scripts/optimize-map.mjs",
+    "map:interior": "node scripts/optimize-map.mjs InteriorHospital.tmj"
   },
   "dependencies": {
     "canvas-confetti": "^1.9.4",
