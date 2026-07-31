@@ -15,7 +15,7 @@ export class InteriorHospitalScene extends MapTestScene {
       packed:  { tsName: 'InteriorHospital-packed', key: 'interior-packed', png: '/assets/maps/InteriorHospital-packed.png' },
       objects: { key: 'interior-objects', png: '/assets/maps/InteriorHospital-objects.png' },
       ysort:   { key: 'interior-ysort', json: '/assets/maps/InteriorHospital-ysort.json' },
-      spawn:   { x: 10, y: 15 },   // tile de aparición (ajustable)
+      spawn:   { x: 8, y: 8 },   // tile de aparición (ajustable)
       speed:   3.5,                  // más lento que el exterior (ciudad usa 4.2)
     }
   }

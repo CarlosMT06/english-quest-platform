@@ -32,6 +32,8 @@ export default function App() {
   const [showAbout, setShowAbout]           = useState(false)
   // Posición de retorno del jugador en la ciudad (al volver de un interior).
   const [cityReturn, setCityReturn]         = useState(null)
+  // Textos de las cartulinas del minijuego, como overlay HTML nítido.
+  const [stationLabels, setStationLabels]   = useState([])
   // Overlay de fundido a negro para transiciones ciudad ↔ interior.
   const [fading, setFading]                 = useState(false)
 
@@ -169,6 +171,13 @@ export default function App() {
     window.addEventListener('start-minigame', onStart)
     return () => window.removeEventListener('start-minigame', onStart)
   }, [screen])
+
+  // Textos de cartulinas (overlay HTML nítido) emitidos por la escena.
+  useEffect(() => {
+    const onLabels = (e) => setStationLabels(e.detail?.labels ?? [])
+    window.addEventListener('station-labels', onLabels)
+    return () => window.removeEventListener('station-labels', onLabels)
+  }, [])
 
   useEffect(() => {
     if (screen !== 'game') return
@@ -451,6 +460,7 @@ export default function App() {
       <div style={{ width: '100vw', height: '100vh', overflow: 'hidden', position: 'relative', background: '#1a1a1a' }}>
         <div id="world-phaser" style={{ position: 'absolute', inset: 0 }} />
         {/* La salida del interior se hace pisando el trigger `target: city`. */}
+        <StationLabels labels={stationLabels} />
         <FadeOverlay show={fading} />
         {worldMinigame === 'listen-image' && (
           <ListenPointOverlay
@@ -708,6 +718,36 @@ export default function App() {
       )}
 
     </div>
+  )
+}
+
+// Textos de las cartulinas del minijuego, como overlay HTML nítido sobre el
+// canvas. Cada label trae su posición en pantalla (centro de la cartulina).
+function StationLabels({ labels }) {
+  if (!labels?.length) return null
+  return (
+    <>
+      {labels.map((l, i) => {
+        // Una sola palabra → nowrap (una línea, div ajustado = centrado exacto).
+        // Frase con espacio ("Sore throat") → permite 2 líneas por el espacio.
+        const multiWord = /\s/.test(l.text ?? '')
+        return (
+        <div key={i} style={{
+          position: 'absolute', left: l.x, top: l.y,
+          transform: 'translate(-50%, -50%)',
+          pointerEvents: 'none', zIndex: 20,
+          fontFamily: 'Nunito', fontWeight: 700, fontSize: 17,
+          color: '#2D2016', textAlign: 'center',
+          lineHeight: 1.1, wordBreak: 'keep-all',
+          ...(multiWord ? { maxWidth: 88 } : { whiteSpace: 'nowrap' }),
+          textShadow: '0 1px 0 rgba(255,255,255,0.4)',
+          userSelect: 'none', WebkitUserSelect: 'none', caretColor: 'transparent',
+        }}>
+          {l.text}
+        </div>
+        )
+      })}
+    </>
   )
 }
 

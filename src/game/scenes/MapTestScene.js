@@ -1,5 +1,6 @@
 import * as Phaser from 'phaser'
 import { playSfx } from '../../utils/sfx'
+import unit4 from '../../content/grade4/unit4.json'
 
 // Escena de prueba del mapa de Tiled: jugador movible + colisiones por-forma.
 //
@@ -55,6 +56,19 @@ export class MapTestScene extends Phaser.Scene {
         frameWidth: 32, frameHeight: 64,
       })
       this.load.spritesheet(CHAR_IDLE, '/assets/map/sprites/character_idle.png', {
+        frameWidth: 32, frameHeight: 64,
+      })
+    }
+    if (!this.textures.exists('mg-card')) {
+      this.load.image('mg-card', '/assets/map/sprites/card.png')
+    }
+    if (!this.textures.exists('key-e')) {
+      this.load.spritesheet('key-e', '/assets/map/sprites/key_e.png', {
+        frameWidth: 32, frameHeight: 32,
+      })
+    }
+    if (!this.textures.exists('char-grab')) {
+      this.load.spritesheet('char-grab', '/assets/map/sprites/character_grab.png', {
         frameWidth: 32, frameHeight: 64,
       })
     }
@@ -123,6 +137,9 @@ export class MapTestScene extends Phaser.Scene {
     anims.create({ key: 'idle-up',    frames: anims.generateFrameNumbers(CHAR_IDLE, { start: 6,  end: 11 }), frameRate: 6, repeat: -1 })
     anims.create({ key: 'idle-left',  frames: anims.generateFrameNumbers(CHAR_IDLE, { start: 12, end: 17 }), frameRate: 6, repeat: -1 })
     anims.create({ key: 'idle-down',  frames: anims.generateFrameNumbers(CHAR_IDLE, { start: 18, end: 23 }), frameRate: 6, repeat: -1 })
+    // Agarrar: subir brazos (0-7, frame 7 = arriba) y bajar (8-13). Frontal.
+    anims.create({ key: 'grab-up',   frames: anims.generateFrameNumbers('char-grab', { start: 0, end: 7  }), frameRate: 14, repeat: 0 })
+    anims.create({ key: 'grab-down', frames: anims.generateFrameNumbers('char-grab', { start: 8, end: 13 }), frameRate: 14, repeat: 0 })
 
     // ── Jugador (Matter) ─────────────────────────────────────────
     // El sprite mide 32×64; el cuerpo de colisión es una caja pequeña en los
@@ -171,6 +188,21 @@ export class MapTestScene extends Phaser.Scene {
     this._triggers = this._buildTriggers(map)
     this._triggeredThisVisit = false
 
+    // ── Zonas de minijuego (object layer "minigame_area") ────────
+    // Al entrar el jugador, la cámara se fija centrada en esa zona; al salir,
+    // vuelve a seguir al jugador.
+    this._minigameAreas = this._buildMinigameAreas(map)
+    this._activeArea = null
+    this._camTransition = 0   // frames restantes de interpolación suave de cámara
+
+    // ── Estaciones de minijuego (object layer "stations") ────────
+    this._stations = this._buildStations(map)
+
+    // Valida la convención (áreas + estaciones) y reporta problemas por consola.
+    this._validateMinigames()
+
+    this._drawStationLabels()
+
     // ── Input ────────────────────────────────────────────────────
     this.cursors = this.input.keyboard.createCursorKeys()
     this.wasd = this.input.keyboard.addKeys({
@@ -179,6 +211,9 @@ export class MapTestScene extends Phaser.Scene {
       left:  Phaser.Input.Keyboard.KeyCodes.A,
       right: Phaser.Input.Keyboard.KeyCodes.D,
     })
+    // Tecla E: interactuar con la estación cercana (agarrar la cartulina)
+    this._grabbing = false
+    this.input.keyboard.on('keydown-E', () => this._tryGrab())
 
   }
 
@@ -191,15 +226,247 @@ export class MapTestScene extends Phaser.Scene {
     const halfW = cam.width  / (2 * zoom)
     const halfH = cam.height / (2 * zoom)
 
-    const midX = this._mapW <= halfW * 2
-      ? this._mapW / 2
-      : Phaser.Math.Clamp(this.player.x, halfW, this._mapW - halfW)
-    const midY = this._mapH <= halfH * 2
-      ? this._mapH / 2
-      : Phaser.Math.Clamp(this.player.y, halfH, this._mapH - halfH)
+    let midX, midY
+    if (this._activeArea) {
+      // Dentro de una zona de minijuego: cámara centrada en el área.
+      midX = this._activeArea.cx
+      midY = this._activeArea.cy
+    } else {
+      midX = this._mapW <= halfW * 2
+        ? this._mapW / 2
+        : Phaser.Math.Clamp(this.player.x, halfW, this._mapW - halfW)
+      midY = this._mapH <= halfH * 2
+        ? this._mapH / 2
+        : Phaser.Math.Clamp(this.player.y, halfH, this._mapH - halfH)
+    }
 
-    cam.scrollX = midX - cam.width  / 2
-    cam.scrollY = midY - cam.height / 2
+    const targetX = midX - cam.width  / 2
+    const targetY = midY - cam.height / 2
+
+    if (this._camInit == null) {
+      // Primer frame: sin interpolar (evita un barrido inicial)
+      cam.scrollX = targetX
+      cam.scrollY = targetY
+      this._camInit = true
+      this._camFrom = { x: targetX, y: targetY }
+      return
+    }
+
+    // Durante una transición de zona (entrar/salir) interpolamos desde la
+    // posición de inicio hasta el objetivo con una curva suave (easeInOut) que
+    // LLEGA exacto al final — así no hay "saltito" al terminar.
+    if (this._camTransition > 0) {
+      this._camTransition--
+      const p = 1 - this._camTransition / this._camTransitionTotal   // 0 → 1
+      const e = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2 // easeInOutQuad
+      cam.scrollX = Phaser.Math.Linear(this._camFrom.x, targetX, e)
+      cam.scrollY = Phaser.Math.Linear(this._camFrom.y, targetY, e)
+    } else {
+      cam.scrollX = targetX
+      cam.scrollY = targetY
+    }
+  }
+
+  // Lee la object layer "minigame_area": rectángulos con `minigame` (+ `id`).
+  // Devuelve [{ x, y, w, h, minigame, id, cx, cy }] en píxeles del mundo.
+  _buildMinigameAreas(map) {
+    const layer = map.getObjectLayer('minigame_area')
+    if (!layer) return []
+    return layer.objects
+      .map(o => {
+        const prop = n => (o.properties ?? []).find(p => p.name === n)?.value
+        const minigame = prop('minigame')
+        if (!minigame) return null
+        return {
+          x: o.x, y: o.y, w: o.width, h: o.height,
+          cx: o.x + o.width / 2, cy: o.y + o.height / 2,
+          minigame, id: prop('id') ?? null,
+        }
+      })
+      .filter(Boolean)
+  }
+
+  // Nº de estaciones esperadas por tipo de minijuego (para validar el armado).
+  static STATIONS_EXPECTED = {
+    'listen-choose': 4,
+    'listen-point':  4,
+    'memory-match':  12,
+    'fill-blank':    1,
+  }
+
+  // Valida la convención de minijuegos (áreas + estaciones) y reporta por
+  // consola cualquier problema de armado en Tiled: atributos faltantes, número
+  // de estaciones incorrecto, estaciones fuera de su área, ids que no calzan.
+  // Vincula además cada estación a su área (por id + contención) en s.area.
+  _validateMinigames() {
+    const warn = (msg) => console.warn('[Minigame] ⚠ ' + msg)
+    const ok   = (msg) => console.log('[Minigame] ✓ ' + msg)
+    const areas = this._minigameAreas
+    const stations = this._stations
+
+    if (!areas.length && !stations.length) return   // mapa sin minijuegos
+
+    // Cada estación debe tener station, slot e id
+    stations.forEach((s, k) => {
+      const at = `station #${k} en (${Math.round(s.cx)},${Math.round(s.cy)})`
+      if (!s.station) warn(`${at}: falta la propiedad "station".`)
+      if (s.slot == null) warn(`${at}: falta la propiedad "slot".`)
+      if (!s.id) warn(`${at}: falta la propiedad "id" (no se puede vincular a un área).`)
+    })
+
+    // Cada área debe tener minigame e id
+    areas.forEach((a, k) => {
+      const at = `minigame_area #${k}`
+      if (!a.minigame) warn(`${at}: falta la propiedad "minigame".`)
+      if (!a.id) warn(`${at}: falta la propiedad "id".`)
+      if (a.minigame && !(a.minigame in MapTestScene.STATIONS_EXPECTED)) {
+        warn(`${at} (id "${a.id}"): minigame "${a.minigame}" desconocido.`)
+      }
+    })
+
+    // Vincula estaciones a su área por id + valida que estén dentro del rect
+    for (const a of areas) {
+      if (!a.id) continue
+      const inside = stations.filter(s => s.id === a.id)
+      inside.forEach(s => {
+        s.area = a
+        const within = s.cx >= a.x && s.cx <= a.x + a.w && s.cy >= a.y && s.cy <= a.y + a.h
+        if (!within) warn(`Estación (slot ${s.slot}, id "${s.id}") está FUERA de su área "${a.id}".`)
+        if (s.station && a.minigame && s.station !== a.minigame) {
+          warn(`Estación (id "${s.id}") tiene station="${s.station}" ≠ minigame="${a.minigame}" del área.`)
+        }
+      })
+
+      // Número de estaciones esperado
+      const expected = MapTestScene.STATIONS_EXPECTED[a.minigame]
+      if (expected != null && inside.length !== expected) {
+        warn(`Área "${a.id}" (${a.minigame}): se esperaban ${expected} estaciones, hay ${inside.length}.`)
+      }
+      // Slots correctos (0..expected-1, sin repetir)
+      if (expected != null && inside.length === expected) {
+        const slots = inside.map(s => Number(s.slot)).sort((x, y) => x - y)
+        const wanted = Array.from({ length: expected }, (_, i) => i)
+        if (JSON.stringify(slots) !== JSON.stringify(wanted)) {
+          warn(`Área "${a.id}": los slots deben ser ${wanted.join(',')} sin repetir; hay ${slots.join(',')}.`)
+        } else {
+          ok(`Área "${a.id}" (${a.minigame}): ${expected} estaciones con slots correctos.`)
+        }
+      }
+    }
+
+    // Estaciones cuyo id no corresponde a ninguna área
+    const areaIds = new Set(areas.map(a => a.id).filter(Boolean))
+    stations.forEach(s => {
+      if (s.id && !areaIds.has(s.id)) {
+        warn(`Estación (slot ${s.slot}) con id "${s.id}" no corresponde a ninguna minigame_area.`)
+      }
+    })
+  }
+
+  // Lee la object layer "stations": rectángulos (mesas) con station/slot/id.
+  // Devuelve [{ x, y, w, h, cx, cy, station, slot, id }] ordenados por slot.
+  _buildStations(map) {
+    const layer = map.getObjectLayer('stations')
+    if (!layer) return []
+    return layer.objects
+      .map(o => {
+        const prop = n => (o.properties ?? []).find(p => p.name === n)?.value
+        return {
+          x: o.x, y: o.y, w: o.width, h: o.height,
+          cx: o.x + o.width / 2, cy: o.y + o.height / 2,
+          station: prop('station'), slot: prop('slot') ?? 0, id: prop('id') ?? null,
+        }
+      })
+      .filter(s => s.station)
+      .sort((a, b) => a.slot - b.slot)
+  }
+
+  // Dibuja la cartulina (card.png, 96×64) centrada sobre cada mesa, con Y-sort
+  // por su base y colisión. El TEXTO NO se dibuja en Phaser (se ve pixelado por
+  // pixelArt+zoom): se renderiza como overlay HTML en React, nítido.
+  _drawStationLabels() {
+    if (!this._stations.length) return
+    const words = unit4.vocabulary.map(v => v.word)
+    const CARD_W = 96, CARD_H = 64
+
+    // Animación de la tecla E: frame 0 (sin presionar) ~1s → frame 1 (presionado)
+    // ~1s, en loop. Indicador "presioná E".
+    if (!this.anims.exists('key-e-pulse')) {
+      this.anims.create({
+        key: 'key-e-pulse',
+        frames: [
+          { key: 'key-e', frame: 0, duration: 800 },
+          { key: 'key-e', frame: 1, duration: 800 },
+        ],
+        repeat: -1,
+      })
+    }
+
+    const keyDepth = this.YSORT_BASE + this.map.heightInPixels + 400
+    this._stationKeys = []       // tecla E por estación (se muestra por proximidad)
+    this._stationHighlights = [] // resaltado de la cartulina en rango
+    this._stationCards = []      // imagen de cada cartulina (para el vuelo al agarrar)
+    this._cardHalfW = CARD_W / 2
+    this._cardHalfH = CARD_H / 2
+    this._stations.forEach((s) => {
+      const card = this.add.image(s.cx, s.cy, 'mg-card')
+      this._stationCards.push(card)
+      // Y-sort por la base de la cartulina (su borde inferior).
+      const baseY = s.cy + CARD_H / 2
+      card.setDepth(this.YSORT_BASE + baseY)
+      // Colisión: rectángulo estático del tamaño de la cartulina.
+      this.matter.add.rectangle(s.cx, s.cy, CARD_W, CARD_H, { isStatic: true })
+
+      // Resaltado sobre la cartulina (relleno tenue + borde), oculto hasta que
+      // el jugador se acerque. Indica "esta es la que vas a seleccionar".
+      // Blanco brillante = resalte tipo "brillo" (neutral, no verde/rojo).
+      const hl = this.add.rectangle(s.cx, s.cy, CARD_W, CARD_H, 0xffffff, 0.35)
+        .setStrokeStyle(3, 0xffffff, 0.9)
+        .setDepth(this.YSORT_BASE + baseY + 0.5)   // justo sobre su cartulina
+        .setVisible(false)
+      this._stationHighlights.push(hl)
+
+      // Tecla E flotando sobre el borde superior de la cartulina (oculta hasta
+      // que el jugador se acerque).
+      const key = this.add.sprite(s.cx, s.cy - CARD_H / 2 - 20, 'key-e')
+        .setDepth(keyDepth)
+        .play('key-e-pulse')
+        .setVisible(false)
+      this._stationKeys.push(key)
+    })
+
+    // Palabra de cada mesa (por ahora, de prueba, por índice de slot)
+    this._stationWords = this._stations.map((s, i) => words[i % words.length])
+  }
+
+  // Emite a React las palabras + su posición EN PANTALLA (para el overlay HTML).
+  // Se llama al entrar a la zona y mientras la cámara esté fija ahí.
+  _emitStationLabels() {
+    if (!this._stations?.length) return
+    const cam = this.cameras.main
+    const toScreen = (wx, wy) => ({
+      x: (wx - cam.worldView.x) * cam.zoom,
+      y: (wy - cam.worldView.y) * cam.zoom,
+    })
+    // Textos de las cartulinas de la mesa (omite la agarrada: su mesa queda vacía).
+    // Si una cartulina se está sacudiendo (respuesta incorrecta), su texto sigue
+    // el offset horizontal del shake.
+    const labels = []
+    this._stations.forEach((s, i) => {
+      if (i === this._grabbingIdx) return
+      const shakeOff = this._shakeX?.[i] ?? 0
+      labels.push({ text: this._stationWords[i], ...toScreen(s.cx + shakeOff, s.cy) })
+    })
+    // Texto de la copia fantasma que vuela hacia el personaje (si hay agarre).
+    if (this._grabFly?.obj?.active) {
+      const g = this._grabFly.obj
+      labels.push({ text: this._grabFly.text, ...toScreen(g.x, g.y) })
+    }
+    window.dispatchEvent(new CustomEvent('station-labels', { detail: { labels } }))
+  }
+
+  _clearStationLabels() {
+    window.dispatchEvent(new CustomEvent('station-labels', { detail: { labels: [] } }))
   }
 
   // Lee la object layer "triggers": rectángulos con propiedad `target`.
@@ -357,6 +624,16 @@ export class MapTestScene extends Phaser.Scene {
     const { player, cursors, wasd } = this
     if (!player) return
 
+    // Durante el agarre: jugador inmóvil, la animación de grab manda.
+    if (this._grabbing) {
+      player.setVelocity(0)
+      this._updateStationKeys()
+      this._updateCamera()
+      // Sigue emitiendo los textos de las OTRAS cartulinas (la agarrada se omite)
+      if (this._activeArea) this._emitStationLabels()
+      return
+    }
+
     const left  = cursors.left.isDown  || wasd.left.isDown
     const right = cursors.right.isDown || wasd.right.isDown
     const up    = cursors.up.isDown    || wasd.up.isDown
@@ -384,11 +661,199 @@ export class MapTestScene extends Phaser.Scene {
     // Y-sort del jugador según la Y de sus pies (posición del cuerpo Matter)
     player.setDepth(this.YSORT_BASE + player.y)
 
+    // Zona de minijuego: fija la cámara al entrar, la libera al salir.
+    this._checkMinigameArea()
+
     // Cámara (sigue/centra según el tamaño del mapa vs. viewport)
     this._updateCamera()
 
+    // Overlay HTML de los textos de las cartulinas: se emite mientras el jugador
+    // está en una zona de estaciones (posición en pantalla, sigue la cámara).
+    if (this._activeArea && this._stations?.length) this._emitStationLabels()
+
+    // Tecla E: visible solo si el jugador está cerca (≤1 tile) de la cartulina.
+    this._updateStationKeys()
+
     // Detección de triggers de entrada (por la posición de los pies)
     this._checkTriggers()
+  }
+
+  // Al presionar E cerca de una estación: el personaje mira al frente y hace la
+  // animación de agarre; la cartulina vuela a sus manos (64px sobre él) y
+  // desaparece. Bloquea el movimiento durante la secuencia.
+  _tryGrab() {
+    if (this._grabbing) return
+    if (this._nearStation == null || !this._activeArea) return
+    const idx = this._nearStation
+
+    // ¿Es la correcta? (TEMP de prueba: "Headache".)
+    const correct = this._stationWords[idx] === 'Headache'
+
+    // INCORRECTA: la cartulina se queda en la mesa y hace el efecto de error
+    // (rojo pastel + sacudida), sin animación del personaje.
+    if (!correct) {
+      this._rejectStation(idx)
+      return
+    }
+
+    // CORRECTA: sonido de acierto + animación de agarre.
+    playSfx('correct')
+
+    this._grabbing = true
+    const player = this.player
+    player.setVelocity(0)
+    const prevDir = this.lastDir
+
+    // Ocultar tecla E y resaltado de proximidad.
+    this._stationKeys[idx].setVisible(false)
+    this._stationHighlights[idx].setVisible(false)
+
+    // La mesa queda VACÍA durante el agarre: ocultamos la cartulina original y
+    // omitimos su texto (vía _grabbingIdx). Se restauran al terminar.
+    this._stationCards[idx].setVisible(false)
+    this._grabbingIdx = idx
+
+    // Personaje al frente + animación de subir brazos
+    player.setTexture('char-grab', 0)
+    player.play('grab-up')
+
+    // COPIA que vuela (con su texto vía _grabFly) desde la mesa al personaje.
+    const src = this._stations[idx]
+    const cardDepth = this.YSORT_BASE + this.map.heightInPixels + 500
+    const ghost = this.add.image(src.cx, src.cy, 'mg-card').setDepth(cardDepth)
+    this._grabFly = { text: this._stationWords[idx], obj: ghost }
+
+    // Feedback de acierto (verde pastel) sobre la carta que vuela.
+    const feedback = this.add.rectangle(src.cx, src.cy, 96, 64, 0xb6e8c3, 0.45)
+      .setStrokeStyle(3, 0x8fd6a5, 1)
+      .setDepth(cardDepth + 1)
+    this._grabFly.feedback = feedback
+
+    const flyDur = (8 / 14) * 1000   // ~ lo que dura subir los brazos (8 frames a 14fps)
+    this.tweens.add({
+      targets: [ghost, feedback],
+      x: player.x, y: player.y - 64,
+      duration: flyDur, ease: 'Quad.easeOut',
+    })
+
+    // Al terminar de subir: pausa 1s con la carta arriba, luego bajar brazos.
+    player.once('animationcomplete-grab-up', () => {
+      this.time.delayedCall(1000, () => {
+        ghost.destroy()          // la copia fantasma desaparece
+        feedback.destroy()       // y su resaltado de feedback
+        this._grabFly = null
+        player.play('grab-down')
+      })
+    })
+
+    // Al terminar de bajar: restaurar la cartulina de la mesa, volver al idle en
+    // la dirección previa y desbloquear.
+    player.once('animationcomplete-grab-down', () => {
+      this._stationCards[idx].setVisible(true)   // reaparece en la mesa
+      this._grabbingIdx = null
+      this.lastDir = prevDir
+      player.setTexture(CHAR_IDLE, 0)
+      player.play('idle-' + prevDir)
+      this._grabbing = false
+    })
+  }
+
+  // Respuesta INCORRECTA: la cartulina se queda en la mesa, se tiñe de rojo
+  // pastel y se sacude (como el feedback de error de los minijuegos de UI).
+  _rejectStation(idx) {
+    if (this._rejecting?.[idx]) return
+    this._rejecting = this._rejecting || {}
+    this._rejecting[idx] = true
+
+    const s = this._stations[idx]
+    const card = this._stationCards[idx]
+    const cardDepth = this.YSORT_BASE + this.map.heightInPixels + 500
+
+    // Overlay rojo pastel sobre la cartulina.
+    const flash = this.add.rectangle(s.cx, s.cy, 96, 64, 0xf5c2bb, 0.55)
+      .setStrokeStyle(3, 0xe89a90, 1)
+      .setDepth(cardDepth)
+
+    // Sacudida horizontal (~0.45s). Un solo tween con offset que va y vuelve
+    // varias veces; el texto (overlay HTML) sigue esta X vía _shakeX[idx].
+    const baseX = s.cx
+    this._shakeX = this._shakeX || {}
+    this.tweens.add({
+      targets: { off: -3 },
+      off: 3,
+      duration: 85,
+      ease: 'Sine.easeInOut',
+      yoyo: true,
+      repeat: 4,
+      onUpdate: (tw, t) => {
+        const off = t.off
+        card.x = baseX + off
+        flash.x = baseX + off
+        this._shakeX[idx] = off
+      },
+      onComplete: () => {
+        card.x = baseX
+        flash.destroy()
+        delete this._shakeX[idx]
+        this._rejecting[idx] = false
+      },
+    })
+    playSfx('wrong')
+  }
+
+  // Muestra la tecla E sobre una estación cuando el jugador está a ≤1 tile del
+  // rectángulo de su cartulina (96×64). Guarda la estación en rango para la
+  // interacción con E.
+  _updateStationKeys() {
+    if (!this._stationKeys?.length) return
+    const NEAR = 32   // 1 tile de margen alrededor de la cartulina
+    const px = this.player.x, py = this.player.y
+    this._nearStation = null
+    this._stations.forEach((s, i) => {
+      // Distancia del jugador al rectángulo de la cartulina (expandido NEAR)
+      const dx = Math.max(Math.abs(px - s.cx) - this._cardHalfW, 0)
+      const dy = Math.max(Math.abs(py - s.cy) - this._cardHalfH, 0)
+      const near = dx <= NEAR && dy <= NEAR
+      // Durante el agarre, no re-mostrar la tecla/resaltado (ni de la agarrada).
+      const show = near && !!this._activeArea && !this._grabbing
+      this._stationKeys[i].setVisible(show)
+      this._stationHighlights[i].setVisible(show)
+      if (show) this._nearStation = i
+    })
+  }
+
+  // Detecta si el jugador está dentro de una zona de minijuego y activa/desactiva
+  // el enfoque de cámara. Notifica a React al entrar/salir (para la lógica del
+  // minijuego, que se conectará después).
+  _checkMinigameArea() {
+    if (!this._minigameAreas.length) return
+    const px = this.player.x, py = this.player.y
+    const inside = this._minigameAreas.find(a =>
+      px >= a.x && px <= a.x + a.w && py >= a.y && py <= a.y + a.h,
+    ) ?? null
+
+    if (inside === this._activeArea) return   // sin cambios
+
+    // Cambió el estado de zona → arranca la interpolación suave de cámara
+    // (~0.5 s a 60 fps), desde la posición actual hacia el nuevo objetivo.
+    const cam = this.cameras.main
+    this._camFrom = { x: cam.scrollX, y: cam.scrollY }
+    this._camTransitionTotal = 30
+    this._camTransition = 30
+
+    if (inside) {
+      this._activeArea = inside
+      window.dispatchEvent(new CustomEvent('minigame-area-enter', {
+        detail: { minigame: inside.minigame, id: inside.id },
+      }))
+    } else {
+      const left = this._activeArea
+      this._activeArea = null
+      this._clearStationLabels()   // ocultar textos HTML al salir
+      window.dispatchEvent(new CustomEvent('minigame-area-exit', {
+        detail: { minigame: left?.minigame, id: left?.id },
+      }))
+    }
   }
 
   // Si los pies del jugador entran en un trigger, avisa a React para cambiar de
