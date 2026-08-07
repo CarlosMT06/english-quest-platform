@@ -622,8 +622,8 @@ export class MapTestScene extends Phaser.Scene {
     // El texto (Q + rondas) se emite como overlay HTML en _applyRound.
     this._syncUiCameraIgnore()   // que la cámara UI no duplique las cartulinas
 
-    // Generar las rondas y arrancar la primera. (TEMP: 2 rondas para probar)
-    this._rounds = this._genRounds(2)
+    // Generar las 8 rondas y arrancar la primera.
+    this._rounds = this._genRounds(8)
     this._roundIdx = 0
     this._applyRound()
   }
