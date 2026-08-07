@@ -14,6 +14,7 @@ import FillBlankUI    from './components/minigames/FillBlankUI'
 import MemoryMatchUI  from './components/minigames/MemoryMatchUI'
 import TrueFalseUI    from './components/minigames/TrueFalseUI'
 import MinigameSelect from './components/MinigameSelect'
+import Celebration from './components/Celebration'
 import { getPalette } from './theme/palettes'
 import { INSTRUCTIONS } from './content/instructions'
 import { playSfx } from './utils/sfx'
@@ -34,6 +35,12 @@ export default function App() {
   const [cityReturn, setCityReturn]         = useState(null)
   // Textos de las cartulinas del minijuego, como overlay HTML nítido.
   const [stationLabels, setStationLabels]   = useState([])
+  // Textos de recuadros del HUD (indicación Q, etc.), overlay HTML nítido.
+  const [hudTexts, setHudTexts]             = useState([])
+  // Recuadro de confirmación Yes/No (texto + botones clickeables), o null.
+  const [confirmData, setConfirmData]       = useState(null)
+  // Celebración de victoria del minijuego espacial (confetti a pantalla).
+  const [celebrating, setCelebrating]       = useState(false)
   // Overlay de fundido a negro para transiciones ciudad ↔ interior.
   const [fading, setFading]                 = useState(false)
 
@@ -177,6 +184,30 @@ export default function App() {
     const onLabels = (e) => setStationLabels(e.detail?.labels ?? [])
     window.addEventListener('station-labels', onLabels)
     return () => window.removeEventListener('station-labels', onLabels)
+  }, [])
+
+  // Textos de recuadros del HUD (indicación Q, etc.), overlay HTML nítido.
+  useEffect(() => {
+    const onHud = (e) => setHudTexts(e.detail?.texts ?? [])
+    window.addEventListener('hud-texts', onHud)
+    return () => window.removeEventListener('hud-texts', onHud)
+  }, [])
+
+  // Recuadro de confirmación Yes/No (texto + botones clickeables).
+  useEffect(() => {
+    const onConfirm = (e) => setConfirmData(e.detail ?? null)
+    window.addEventListener('confirm-box', onConfirm)
+    return () => window.removeEventListener('confirm-box', onConfirm)
+  }, [])
+
+  // Celebración de victoria del minijuego espacial (confetti + victory).
+  useEffect(() => {
+    const onCelebrate = () => {
+      setCelebrating(true)
+      setTimeout(() => setCelebrating(false), 3000)
+    }
+    window.addEventListener('minigame-celebrate', onCelebrate)
+    return () => window.removeEventListener('minigame-celebrate', onCelebrate)
   }, [])
 
   useEffect(() => {
@@ -461,6 +492,9 @@ export default function App() {
         <div id="world-phaser" style={{ position: 'absolute', inset: 0 }} />
         {/* La salida del interior se hace pisando el trigger `target: city`. */}
         <StationLabels labels={stationLabels} />
+        <HudTexts texts={hudTexts} />
+        <ConfirmBox data={confirmData} />
+        {celebrating && <Celebration />}
         <FadeOverlay show={fading} />
         {worldMinigame === 'listen-image' && (
           <ListenPointOverlay
@@ -747,6 +781,91 @@ function StationLabels({ labels }) {
         </div>
         )
       })}
+    </>
+  )
+}
+
+// Textos de recuadros del HUD (indicación Q, etc.) como overlay HTML nítido.
+// Cada texto se centra dentro de su caja {x,y,w,h} en coordenadas de pantalla.
+function HudTexts({ texts }) {
+  if (!texts?.length) return null
+  return (
+    <>
+      {texts.map((t) => {
+        const align = t.align ?? 'left'
+        const justify = align === 'center' ? 'center' : (align === 'right' ? 'flex-end' : 'flex-start')
+        return (
+        <div key={t.id} style={{
+          position: 'absolute', left: t.x, top: t.y, width: t.w, height: t.h,
+          display: 'flex', alignItems: 'center', justifyContent: justify,
+          pointerEvents: 'none', zIndex: 25, textAlign: align,
+          fontFamily: 'Nunito', fontWeight: 700, fontSize: t.size ?? 18,
+          color: '#2D2016', lineHeight: t.lineHeight ?? 1.25, whiteSpace: 'pre-line',
+          userSelect: 'none', WebkitUserSelect: 'none', caretColor: 'transparent',
+        }}>
+          {t.text}
+        </div>
+        )
+      })}
+    </>
+  )
+}
+
+// Recuadro de confirmación Yes/No: el recuadro (imagen) lo dibuja Phaser; acá
+// van el texto de arriba y los botones clickeables (mouse), posicionados sobre
+// sus cajas en coordenadas de pantalla. Al hacer clic, avisa a Phaser.
+function ConfirmBox({ data }) {
+  // Fuente del marcado: 'kbd' (selección por teclado) o 'mouse' (hover).
+  const [mode, setMode] = useState('kbd')
+  const [hovered, setHovered] = useState(null)
+  const selected = data?.selected
+  // Cuando el teclado fija una selección (no null), toma el control.
+  useEffect(() => { if (selected != null) setMode('kbd') }, [selected])
+  if (!data) return null
+  const { prompt, buttons } = data
+  const click = (id) => {
+    playSfx('click')
+    window.dispatchEvent(new CustomEvent('confirm-result', { detail: { id } }))
+  }
+  const HL = 'rgba(0,0,0,0.12)'
+  // Índice marcado: si el mouse manda, el que esté bajo el cursor (o ninguno);
+  // si manda el teclado, el seleccionado.
+  const markedIdx = mode === 'mouse' ? hovered : selected
+  return (
+    <>
+      {/* Texto de confirmación (arriba) */}
+      <div style={{
+        position: 'absolute', left: prompt.x, top: prompt.y, width: prompt.w, height: prompt.h,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        pointerEvents: 'none', zIndex: 26, textAlign: 'center',
+        fontFamily: 'Nunito', fontWeight: 700, fontSize: 24, color: '#2D2016',
+        userSelect: 'none', WebkitUserSelect: 'none',
+      }}>
+        {prompt.text}
+      </div>
+      {/* Botones Yes / No. El mouse tiene prioridad: al entrar marca ese; al
+          salir, ninguno queda marcado. Al usar el teclado, vuelve el marcado
+          por selección. */}
+      {buttons.map((b, i) => (
+        <div key={b.id}
+          onClick={() => click(b.id)}
+          onMouseEnter={() => {
+            setMode('mouse'); setHovered(i)
+            // el mouse toma el control → invalida la selección de teclado en Phaser
+            window.dispatchEvent(new CustomEvent('confirm-kbd-off'))
+          }}
+          onMouseLeave={() => { setMode('mouse'); setHovered(null) }}
+          style={{
+            position: 'absolute', left: b.x, top: b.y, width: b.w, height: b.h,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer', zIndex: 27, borderRadius: 8,
+            background: i === markedIdx ? HL : 'transparent', transition: 'background 0.12s',
+            fontFamily: 'Nunito', fontWeight: 800, fontSize: 20, color: '#2D2016',
+            userSelect: 'none', WebkitUserSelect: 'none',
+          }}>
+          {b.text}
+        </div>
+      ))}
     </>
   )
 }

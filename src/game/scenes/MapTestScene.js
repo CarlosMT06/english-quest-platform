@@ -16,6 +16,11 @@ const CHAR_IDLE = 'character-idle'  // sprite del jugador — reposo (32×64)
 const SPEED  = 4.2                  // velocidad del jugador (px/paso Matter)
 const ZOOM   = 1.5                  // acercamiento de la cámara
 
+// Corazones (fallos permitidos) por dificultad para Listen & Choose.
+// La dificultad está fija en 'medium' por ahora.
+const HEARTS_BY_DIFFICULTY = { easy: 4, medium: 3, hard: 2 }
+const DIFFICULTY = 'medium'
+
 export class MapTestScene extends Phaser.Scene {
   constructor(key = 'MapTestScene') {
     super(key)
@@ -70,6 +75,38 @@ export class MapTestScene extends Phaser.Scene {
     if (!this.textures.exists('char-grab')) {
       this.load.spritesheet('char-grab', '/assets/map/sprites/character_grab.png', {
         frameWidth: 32, frameHeight: 64,
+      })
+    }
+    if (!this.textures.exists('npc-doctor')) {
+      this.load.spritesheet('npc-doctor', '/assets/map/sprites/doctor.png', {
+        frameWidth: 32, frameHeight: 64,
+      })
+    }
+    if (!this.textures.exists('dialog-box')) {
+      this.load.image('dialog-box', '/assets/ui/dialog-box.png')
+    }
+    if (!this.textures.exists('round-box')) {
+      this.load.image('round-box', '/assets/ui/round-box.png')
+    }
+    if (!this.textures.exists('confirm-box')) {
+      this.load.image('confirm-box', '/assets/ui/confirm-box.png')
+    }
+    if (!this.textures.exists('heart')) {
+      this.load.image('heart', '/assets/ui/heart.png')
+    }
+    if (!this.textures.exists('face-doctor')) {
+      this.load.spritesheet('face-doctor', '/assets/ui/faces/doctor.png', {
+        frameWidth: 64, frameHeight: 64,
+      })
+    }
+    if (!this.textures.exists('face-main')) {
+      this.load.spritesheet('face-main', '/assets/ui/faces/main.png', {
+        frameWidth: 64, frameHeight: 64,
+      })
+    }
+    if (!this.textures.exists('note')) {
+      this.load.spritesheet('note', '/assets/map/sprites/note.png', {
+        frameWidth: 32, frameHeight: 48,
       })
     }
   }
@@ -140,6 +177,13 @@ export class MapTestScene extends Phaser.Scene {
     // Agarrar: subir brazos (0-7, frame 7 = arriba) y bajar (8-13). Frontal.
     anims.create({ key: 'grab-up',   frames: anims.generateFrameNumbers('char-grab', { start: 0, end: 7  }), frameRate: 14, repeat: 0 })
     anims.create({ key: 'grab-down', frames: anims.generateFrameNumbers('char-grab', { start: 8, end: 13 }), frameRate: 14, repeat: 0 })
+    // Doctor NPC: idle en las 4 direcciones (mismo layout que el personaje).
+    if (this.textures.exists('npc-doctor')) {
+      anims.create({ key: 'doctor-right', frames: anims.generateFrameNumbers('npc-doctor', { start: 0,  end: 5  }), frameRate: 6, repeat: -1 })
+      anims.create({ key: 'doctor-up',    frames: anims.generateFrameNumbers('npc-doctor', { start: 6,  end: 11 }), frameRate: 6, repeat: -1 })
+      anims.create({ key: 'doctor-left',  frames: anims.generateFrameNumbers('npc-doctor', { start: 12, end: 17 }), frameRate: 6, repeat: -1 })
+      anims.create({ key: 'doctor-down',  frames: anims.generateFrameNumbers('npc-doctor', { start: 18, end: 23 }), frameRate: 6, repeat: -1 })
+    }
 
     // ── Jugador (Matter) ─────────────────────────────────────────
     // El sprite mide 32×64; el cuerpo de colisión es una caja pequeña en los
@@ -192,16 +236,28 @@ export class MapTestScene extends Phaser.Scene {
     // Al entrar el jugador, la cámara se fija centrada en esa zona; al salir,
     // vuelve a seguir al jugador.
     this._minigameAreas = this._buildMinigameAreas(map)
+
+    // Overlay de oscurecido: cubre TODO el mundo menos la zona del minijuego,
+    // para demarcar el área de juego (útil sobre todo en espacios abiertos).
+    // Se dibuja por debajo del HUD pero encima del mundo. Oculto hasta jugar.
+    this._darkOverlay = this.add.graphics()
+      .setDepth(this.YSORT_BASE + this.map.heightInPixels + 350)
+      .setVisible(false)
     this._activeArea = null
     this._camTransition = 0   // frames restantes de interpolación suave de cámara
 
     // ── Estaciones de minijuego (object layer "stations") ────────
     this._stations = this._buildStations(map)
+    // Las cartulinas se muestran solo tras hablar con el NPC (no al entrar).
+    this._minigameStarted = false
 
     // Valida la convención (áreas + estaciones) y reporta problemas por consola.
     this._validateMinigames()
 
     this._drawStationLabels()
+
+    // ── NPCs (object layer "npcs") ───────────────────────────────
+    this._buildNpcs(map)
 
     // ── Input ────────────────────────────────────────────────────
     this.cursors = this.input.keyboard.createCursorKeys()
@@ -211,10 +267,490 @@ export class MapTestScene extends Phaser.Scene {
       left:  Phaser.Input.Keyboard.KeyCodes.A,
       right: Phaser.Input.Keyboard.KeyCodes.D,
     })
-    // Tecla E: interactuar con la estación cercana (agarrar la cartulina)
+    // Tecla E: si hay un NPC cerca → diálogo; si no, agarrar la cartulina.
     this._grabbing = false
-    this.input.keyboard.on('keydown-E', () => this._tryGrab())
+    this.input.keyboard.on('keydown-E', () => {
+      if (this.dialogOpen) { this._nextDialogPage(); return }
+      // Hablar con el NPC solo antes de que empiece el minijuego.
+      if (this._nearNpc && !this._minigameStarted) { this._talkToNpc(this._nearNpc); return }
+      this._tryGrab()
+    })
+    // Espacio: confirma el Yes/No (si está abierto), o avanza/cierra el diálogo.
+    this.input.keyboard.on('keydown-SPACE', () => {
+      if (this._confirmOpen) {
+        if (this._confirmSel != null) this._resolveConfirm(this._confirmSel === 0 ? 'yes' : 'no')
+        return
+      }
+      this._nextDialogPage()
+    })
+    // Tecla Q: reproducir el audio de la palabra correcta (solo en el minijuego).
+    this.input.keyboard.on('keydown-Q', () => this._playWord())
+    // Resultado del recuadro Yes/No (clic desde React)
+    this._onConfirmResult = (e) => this._resolveConfirm(e.detail?.id)
+    window.addEventListener('confirm-result', this._onConfirmResult)
+    this.events.once('shutdown', () => window.removeEventListener('confirm-result', this._onConfirmResult))
 
+    // Teclado en el recuadro Yes/No: flechas/A/D cambian la selección, Enter confirma.
+    const moveSel = (to) => {
+      if (!this._confirmOpen) return
+      this._confirmSel = to      // el teclado retoma el control
+      playSfx('click')
+      this._emitConfirm()
+    }
+    this.input.keyboard.on('keydown-LEFT',  () => moveSel(0))
+    this.input.keyboard.on('keydown-A',     () => moveSel(0))
+    this.input.keyboard.on('keydown-RIGHT', () => moveSel(1))
+    this.input.keyboard.on('keydown-D',     () => moveSel(1))
+    // Space confirma el Yes/No (solo si hay selección de teclado activa).
+    // El mouse invalidó la selección de teclado → Enter no hace nada.
+    this._onConfirmKbdOff = () => { if (this._confirmOpen) { this._confirmSel = null; this._emitConfirm() } }
+    window.addEventListener('confirm-kbd-off', this._onConfirmKbdOff)
+    this.events.once('shutdown', () => window.removeEventListener('confirm-kbd-off', this._onConfirmKbdOff))
+
+    // ── HUD de diálogo (recuadro + rostro animado + texto paginado) ──
+    this._buildDialogHud()
+  }
+
+  // Construye el recuadro de diálogo, en una cámara UI separada para que no lo
+  // afecten el zoom ni el scroll del mundo (igual patrón que GameScene).
+  _buildDialogHud() {
+    const margin = 16
+    this.dialogBox = this.add
+      .image(this.scale.width / 2, this.scale.height - margin, 'dialog-box')
+      .setOrigin(0.5, 1).setDepth(30)
+
+    if (!this.anims.exists('face-doctor-talk')) {
+      this.anims.create({
+        key: 'face-doctor-talk',
+        frames: this.anims.generateFrameNumbers('face-doctor', { start: 0, end: 9 }),
+        frameRate: 8, repeat: -1,
+      })
+    }
+    const boxTL = this.dialogBox.getTopLeft()
+    this.dialogFace = this.add
+      .sprite(boxTL.x + 32, boxTL.y + 32, 'face-doctor')
+      .setOrigin(0, 0).setScale(2).setDepth(31).play('face-doctor-talk')
+
+    const TX = 6 * 32, TY = 60
+    const availWidth = this.dialogBox.width - TX - 48
+    // dialogText de Phaser: SOLO como medidor para paginar (getWrappedText);
+    // el texto visible se dibuja como overlay HTML (nítido). Queda invisible.
+    this.dialogText = this.add
+      .text(boxTL.x + TX, boxTL.y + TY, '', {
+        fontFamily: 'Nunito', fontSize: '25px', color: '#2D2016',
+        wordWrap: { width: availWidth }, maxLines: 2, lineSpacing: 12,
+      })
+      .setOrigin(0, 0).setDepth(31).setVisible(false)
+    // Caja del texto del diálogo (para el overlay HTML), en pantalla.
+    this._dialogTextBox = { x: boxTL.x + TX, y: boxTL.y + TY - 6, w: availWidth, h: 84 }
+
+    this.dialogHint = this.add
+      .text(boxTL.x + this.dialogBox.width - 20, boxTL.y + this.dialogBox.height - 14, '▶', {
+        fontFamily: 'Nunito', fontSize: '26px', color: '#2D2016',
+      })
+      .setOrigin(1, 1).setDepth(31).setVisible(false)
+    this.tweens.add({ targets: this.dialogHint, alpha: 0.2, duration: 500, yoyo: true, repeat: -1 })
+
+    // ── Contador de rondas (esquina superior derecha) ───────────
+    // El recuadro mide 128×32; los 32px de cada lado son borde, el campo útil
+    // son los 64 del medio. El texto va centrado ahí, con la fuente del diálogo.
+    const RM = 12       // margen desde la esquina
+    const RSCALE = 1.5  // escala del recuadro de rondas
+    this.roundBox = this.add
+      .image(this.scale.width - RM, RM, 'round-box')
+      .setOrigin(1, 0).setScale(RSCALE).setDepth(30).setVisible(false)
+    // El texto del contador va como overlay HTML; guardamos su caja (el campo
+    // útil de los 64px del medio, escalado).
+    this._roundNum = ''
+    this._roundTextBox = () => {
+      const tl = this.roundBox.getTopLeft()
+      return { x: tl.x + 32 * RSCALE, y: tl.y, w: 64 * RSCALE, h: 32 * RSCALE }
+    }
+
+    // ── Indicación de audio "Press Q" (esquina superior izquierda) ──
+    // Reutiliza el recuadro de diálogo escalado, con el rostro "main" animado.
+    const QS = 0.6, QM = 12   // escala y margen (más grande, como el de rondas)
+    this.qBox = this.add.image(QM, QM, 'dialog-box')
+      .setOrigin(0, 0).setScale(QS).setDepth(30).setVisible(false)
+    if (!this.anims.exists('face-main-talk')) {
+      this.anims.create({
+        key: 'face-main-talk',
+        frames: this.anims.generateFrameNumbers('face-main', { start: 0, end: 9 }),
+        frameRate: 8, repeat: -1,
+      })
+    }
+    const qTL = this.qBox.getTopLeft()
+    // El rostro va en (32,32) del recuadro original → escalado
+    this.qFace = this.add.sprite(qTL.x + 32 * QS, qTL.y + 32 * QS, 'face-main')
+      .setOrigin(0, 0).setScale(2 * QS).setDepth(31).play('face-main-talk').setVisible(false)
+    // El TEXTO del recuadro Q se dibuja como overlay HTML (nítido) en React.
+    // Guardamos su caja (a la derecha del rostro) para emitir la posición.
+    const qTX = 6 * 32 * QS
+    this._qTextBox = {
+      x: qTL.x + qTX,
+      y: this.qBox.y,
+      w: this.qBox.displayWidth - qTX - 16,
+      h: this.qBox.displayHeight,
+    }
+
+    // ── Recuadro de confirmación Yes/No (mismo tamaño que el diálogo) ──
+    // Se dibuja el recuadro en Phaser; el texto y los botones (clickeables) van
+    // como overlay HTML. Botones en (128,112) y (352,112), campo 96×32.
+    this.confirmBox = this.add.image(this.scale.width / 2, this.scale.height - margin, 'confirm-box')
+      .setOrigin(0.5, 1).setDepth(32).setVisible(false)
+
+    // ── Corazones (fallos permitidos) — inferior izquierda, en horizontal ──
+    const HMAX = 5   // máximo de corazones que puede haber (según dificultad)
+    const HSC = 1.4, HGAP = 40 * 1.4
+    this._heartMargin = 14
+    this._hearts = []
+    for (let i = 0; i < HMAX; i++) {
+      const h = this.add.image(this._heartMargin + i * HGAP, this.scale.height - this._heartMargin, 'heart')
+        .setOrigin(0, 1).setScale(HSC).setDepth(31).setVisible(false)
+      this._hearts.push(h)
+    }
+    this._heartGap = HGAP
+
+    // Cámara UI: sin zoom ni scroll, solo para el HUD.
+    // La principal ignora el HUD; la UI ignora TODO lo demás (incluidos objetos
+    // creados después, como las cartulinas que aparecen tras el diálogo).
+    this.dialogHud = [this.dialogBox, this.dialogFace, this.dialogHint,
+                      this.roundBox,
+                      this.qBox, this.qFace,
+                      this.confirmBox,
+                      ...this._hearts]
+    this._uiSet = new Set(this.dialogHud)
+    this.uiCamera = this.cameras.add()
+    this.cameras.main.ignore(this.dialogHud)
+    this._syncUiCameraIgnore()
+
+    // Reubicar el HUD al redimensionar (Scale.RESIZE)
+    this.scale.on('resize', (gameSize) => {
+      this.uiCamera.setSize(gameSize.width, gameSize.height)
+      // Recuadro de diálogo (abajo-centro) + rostro + indicador ▶
+      this.dialogBox.setPosition(gameSize.width / 2, gameSize.height - margin)
+      const tl = this.dialogBox.getTopLeft()
+      this.dialogFace.setPosition(tl.x + 32, tl.y + 32)
+      this.dialogText.setPosition(tl.x + TX, tl.y + TY)   // medidor invisible
+      this.dialogHint.setPosition(tl.x + this.dialogBox.width - 20, tl.y + this.dialogBox.height - 14)
+      this._dialogTextBox = { x: tl.x + TX, y: tl.y + TY - 6, w: availWidth, h: 84 }
+      // Contador de rondas (esquina superior derecha, X depende del ancho)
+      this.roundBox.setPosition(gameSize.width - RM, RM)
+      // Recuadro de confirmación (abajo-centro, como el diálogo)
+      this.confirmBox.setPosition(gameSize.width / 2, gameSize.height - margin)
+      // Corazones (abajo-izquierda)
+      this._hearts.forEach((h, i) => h.setPosition(this._heartMargin + i * this._heartGap, gameSize.height - this._heartMargin))
+      // Re-emitir los textos/overlays HTML con las nuevas posiciones
+      this._emitHudText()
+      if (this._confirmOpen) this._emitConfirm()
+    })
+
+    this.dialogOpen = false
+    // El diálogo empieza oculto (el contador de rondas también, hasta jugar).
+    for (const o of [this.dialogBox, this.dialogFace, this.dialogText, this.dialogHint]) {
+      o.setVisible(false)
+    }
+  }
+
+  // La cámara UI ignora todos los objetos del mundo (todo lo que no es HUD).
+  // Se re-llama cuando aparecen objetos nuevos (ej. cartulinas tras el diálogo).
+  _syncUiCameraIgnore() {
+    if (!this.uiCamera) return
+    const world = this.children.list.filter(o => !this._uiSet.has(o))
+    this.uiCamera.ignore(world)
+  }
+
+  // Abre el diálogo del NPC. El NPC gira a mirar al jugador solo al hablar
+  // (el resto del tiempo mira al frente); vuelve al frente al cerrar.
+  _talkToNpc(npc) {
+    const dx = this.player.x - npc._feetX
+    const dy = this.player.y - (npc._feetY - 32)
+    const dir = Math.abs(dx) > Math.abs(dy)
+      ? (dx < 0 ? 'left' : 'right')
+      : (dy < 0 ? 'up' : 'down')
+    npc.play(`${npc._type}-${dir}`)
+    this._talkingNpc = npc
+    // Ocultar la tecla E de todos los NPCs al iniciar la conversación
+    // (el update se detiene durante el diálogo, así que se oculta aquí).
+    this._npcs?.forEach(n => n._keyE?.setVisible(false))
+
+    // TEMP: frases de prueba (luego vendrán por NPC/minijuego).
+    this._openDialog([
+      'Hello! Can you help me?',
+      'Listen to the word and pick the correct card.',
+    ])
+  }
+
+  // Aviso al intentar salir de la zona con el minijuego en curso. Detiene al
+  // jugador y muestra el recuadro de diálogo con el rostro "main".
+  // (El Yes/No se agregará después; por ahora solo el aviso.)
+  _promptExit() {
+    if (this.dialogOpen || this._exiting) return
+    this._exiting = true
+    // Empujar levemente al jugador de vuelta hacia dentro del área para que no
+    // quede "pegado" al borde al reanudar.
+    const a = this._activeArea
+    this.player.x = Phaser.Math.Clamp(this.player.x, a.x + 6, a.x + a.w - 6)
+    this.player.y = Phaser.Math.Clamp(this.player.y, a.y + 6, a.y + a.h - 6)
+    this._openDialog(
+      [
+        'Wait! Do you want to leave the game?',
+        'If you leave now, your progress will be lost.',
+      ],
+      () => this._openConfirm(),   // al terminar el aviso → recuadro Yes/No
+      'main',
+    )
+  }
+
+  // Muestra el recuadro Yes/No y emite su texto + botones (clickeables) a React.
+  _openConfirm() {
+    this._confirmOpen = true
+    this._confirmSel = 1   // 0=Yes, 1=No → predeterminado en "No"
+    this.confirmBox.setVisible(true)
+    this._syncUiCameraIgnore()
+    this._emitConfirm()
+  }
+
+  // Emite a React el texto de confirmación + las cajas de los botones Yes/No,
+  // en coordenadas de PANTALLA (el HUD no tiene zoom/scroll).
+  _emitConfirm() {
+    const tl = this.confirmBox.getTopLeft()
+    const pad = 1   // margen mínimo: la zona hover/clic cubre casi todo el botón
+    window.dispatchEvent(new CustomEvent('confirm-box', {
+      detail: {
+        prompt: { text: 'Leave the game?', x: tl.x + 32, y: tl.y + 36, w: 512, h: 56 },
+        selected: this._confirmSel,   // botón resaltado por teclado (0=Yes, 1=No)
+        buttons: [
+          { id: 'yes', text: 'Yes', x: tl.x + 128 + pad, y: tl.y + 112 + pad, w: 96 - pad * 2, h: 32 - pad * 2 },
+          { id: 'no',  text: 'No',  x: tl.x + 352 + pad, y: tl.y + 112 + pad, w: 96 - pad * 2, h: 32 - pad * 2 },
+        ],
+      },
+    }))
+  }
+
+  // Resultado del clic en Yes/No (viene de React).
+  _resolveConfirm(id) {
+    this._confirmOpen = false
+    this.confirmBox.setVisible(false)
+    window.dispatchEvent(new CustomEvent('confirm-box', { detail: null }))   // ocultar overlay
+    if (id === 'yes') {
+      // Salir: termina el minijuego y reanuda el movimiento.
+      this._endMinigame()
+      this._exiting = false
+    } else {
+      // No: sigue jugando (reanuda dentro de la zona).
+      this._exiting = false
+    }
+  }
+
+  _openDialog(text, onComplete = null, face = 'doctor') {
+    this.dialogOpen = true
+    this._dialogOnComplete = onComplete
+    this.player?.setVelocity(0)
+    // Rostro del recuadro: 'doctor' (NPC) o 'main' (jugador, ej. aviso de salir)
+    this.dialogFace.setTexture(`face-${face}`).play(`face-${face}-talk`)
+    // Mostrar solo los elementos del recuadro de diálogo (no el HUD del minijuego)
+    this.dialogBox.setVisible(true)
+    this.dialogFace.setVisible(true)
+    this.dialogHint.setVisible(false)
+    this._setDialogText(text)
+  }
+
+  _closeDialog() {
+    this.dialogOpen = false
+    // Ocultar solo los elementos del recuadro de diálogo
+    this.dialogBox.setVisible(false)
+    this.dialogFace.setVisible(false)
+    this.dialogHint.setVisible(false)
+    this._dialogText = null
+    this._emitHudText()   // refresca los textos HTML (quita el del diálogo)
+    // El NPC vuelve a mirar al frente
+    if (this._talkingNpc) {
+      this._talkingNpc.play(`${this._talkingNpc._type}-down`)
+      this._talkingNpc = null
+    }
+    const cb = this._dialogOnComplete
+    this._dialogOnComplete = null
+    if (cb) cb()
+
+    // Al terminar el diálogo del NPC, arranca el minijuego (aparecen las cartulinas).
+    if (!this._minigameStarted) this._startMinigame()
+  }
+
+  // Reproduce el audio de la palabra correcta (tecla Q). La nota sobre el NPC se
+  // muestra solo mientras dura el audio (+0.5s) y luego desaparece.
+  _playWord() {
+    if (!this._minigameStarted || this._wordPlaying) return
+    const word = this._correctWord || 'Headache'   // TEMP de prueba
+    const base = unit4.paths?.audioChoose || '/assets/content/grade4/unit4/audio/ListeningChoose/'
+    const audio = new Audio(base + word + '.mp3')
+
+    // Mostrar la nota (reproduce sus frames y queda en el último)
+    this._wordPlaying = true
+    this._npcs?.forEach(n => { n._note?.setVisible(true); n._note?.play('note-play') })
+
+    const hideNote = () => {
+      this._wordPlaying = false
+      this._npcs?.forEach(n => n._note?.setVisible(false))
+    }
+    // Ocultar 0.1s después de que termine el audio (con fallback por si falla)
+    audio.addEventListener('ended', () => this.time.delayedCall(100, hideNote))
+    audio.addEventListener('error', hideNote)
+    audio.play().catch(hideNote)
+  }
+
+  // Muestra las cartulinas y activa su colisión (al terminar el diálogo).
+  _startMinigame() {
+    this._minigameStarted = true
+    this._stationCards.forEach(c => c.setVisible(true))
+    this._stationBodies.forEach(b => { b.isSensor = false })
+    // La nota NO se muestra al empezar; aparece solo mientras suena el audio (Q).
+    this.roundBox.setVisible(true)
+    this.qBox.setVisible(true)
+    this.qFace.setVisible(true)
+    // Oscurecido fuera de la zona de juego (solo si el área lo pide con
+    // la propiedad `darken` en Tiled; útil en espacios abiertos).
+    if (this._activeArea?.darken) {
+      this._drawDarkOverlay()
+      this._darkOverlay.setVisible(true)
+    }
+    // Corazones (fallos permitidos) según la dificultad.
+    this._heartsMax = HEARTS_BY_DIFFICULTY[DIFFICULTY] ?? 2
+    this._heartsLeft = this._heartsMax
+    this._updateHearts()
+
+    // El texto (Q + rondas) se emite como overlay HTML en _applyRound.
+    this._syncUiCameraIgnore()   // que la cámara UI no duplique las cartulinas
+
+    // Generar las rondas y arrancar la primera. (TEMP: 2 rondas para probar)
+    this._rounds = this._genRounds(2)
+    this._roundIdx = 0
+    this._applyRound()
+  }
+
+  // Muestra los corazones restantes (los sobrantes ocultos).
+  _updateHearts() {
+    this._hearts?.forEach((h, i) => h.setVisible(i < this._heartsLeft))
+  }
+
+  // Quita un corazón (al fallar). Si llegan a 0, el minijuego termina (derrota);
+  // vuelve al estado inicial y queda disponible para reintentar hablando al NPC.
+  _loseHeart() {
+    if (this._heartsLeft <= 0) return
+    this._heartsLeft--
+    this._updateHearts()
+    if (this._heartsLeft <= 0) {
+      this.time.delayedCall(600, () => this._endMinigame())
+    }
+  }
+
+  // Genera N rondas (mismo criterio que el minijuego de UI): las N palabras
+  // CORRECTAS son distintas entre sí (una por ronda, sin repetir). Las 3
+  // distractoras de cada ronda se eligen al azar (pueden repetirse entre rondas,
+  // pero nunca dentro de la misma ronda).
+  _genRounds(n) {
+    const shuffle = arr => [...arr].sort(() => Math.random() - 0.5)
+    const vocab = unit4.vocabulary
+    const nStations = this._stations.length   // 4
+    const corrects = shuffle(vocab).slice(0, Math.min(n, vocab.length))
+    const rounds = []
+    for (let r = 0; r < corrects.length; r++) {
+      const correct = corrects[r]
+      const distractors = shuffle(vocab.filter(v => v.id !== correct.id)).slice(0, nStations - 1)
+      const words = shuffle([correct, ...distractors])   // orden en las mesas
+      const correctSlot = words.findIndex(v => v.id === correct.id)
+      rounds.push({
+        words: words.map(v => v.word),
+        correctSlot,
+        correctWord: correct.word,
+      })
+    }
+    return rounds
+  }
+
+  // Aplica la ronda actual: pone las palabras en las mesas, define la correcta
+  // y reproduce su audio.
+  _applyRound() {
+    const round = this._rounds[this._roundIdx]
+    this._stationWords = round.words.slice()
+    this._correctWord = round.correctWord
+    this._correctSlot = round.correctSlot
+    // Los corazones se recuperan al inicio de cada ronda (fallos permitidos por ronda).
+    this._heartsLeft = this._heartsMax
+    this._updateHearts()
+    // Contador de rondas (1-based) → overlay HTML
+    this._roundNum = `${this._roundIdx + 1}/${this._rounds.length}`
+    this._emitHudText()
+    // Reproduce el audio de la palabra al empezar la ronda (pequeño retardo para
+    // que no se solape con el sonido de acierto de la ronda anterior).
+    this.time.delayedCall(350, () => this._playWord())
+  }
+
+  // Avanza a la siguiente ronda; si se completaron todas, VICTORIA (celebración).
+  _nextRound() {
+    this._roundIdx++
+    if (this._roundIdx >= this._rounds.length) {
+      this._winMinigame()
+    } else {
+      this._applyRound()
+    }
+  }
+
+  // Victoria: confetti (mismo efecto que los minijuegos de prueba, vía React) +
+  // sonido, y luego termina el minijuego.
+  _winMinigame() {
+    // React dispara el confetti (canvas-confetti) + victory al recibir el evento.
+    window.dispatchEvent(new CustomEvent('minigame-celebrate'))
+    this.time.delayedCall(3000, () => this._endMinigame())
+  }
+
+  // Termina el minijuego y vuelve TODO al estado inicial (jugable otra vez).
+  _endMinigame() {
+    this._minigameStarted = false
+    this._stationCards.forEach(c => c.setVisible(false))
+    this._stationBodies.forEach(b => { b.isSensor = true })
+    this._stationKeys.forEach(k => k.setVisible(false))
+    this._stationHighlights.forEach(h => h.setVisible(false))
+    this._npcs?.forEach(n => n._note?.setVisible(false))
+    this._clearStationLabels()
+    this.roundBox?.setVisible(false)
+    this.qBox?.setVisible(false)
+    this.qFace?.setVisible(false)
+    this._hearts?.forEach(h => h.setVisible(false))   // ocultar corazones
+    this._darkOverlay?.setVisible(false)   // quitar el oscurecido
+    this._clearHudText()         // ocultar todos los textos HTML del HUD
+    this._correctWord = null
+    this._correctSlot = null
+  }
+
+  _setDialogText(text) {
+    const messages = Array.isArray(text) ? text : [text]
+    this._dialogPages = []
+    for (const msg of messages) {
+      const lines = this.dialogText.getWrappedText(msg)
+      for (let i = 0; i < lines.length; i += 2) {
+        this._dialogPages.push(lines.slice(i, i + 2).join('\n'))
+      }
+    }
+    if (this._dialogPages.length === 0) this._dialogPages = ['']
+    this._dialogPage = 0
+    this._showDialogPage()
+  }
+
+  _showDialogPage() {
+    this._dialogText = this._dialogPages[this._dialogPage]   // → overlay HTML
+    this._emitHudText()
+    this.dialogHint.setVisible(this._dialogPage < this._dialogPages.length - 1)
+  }
+
+  _nextDialogPage() {
+    if (!this.dialogOpen) return
+    if (this._dialogPage < this._dialogPages.length - 1) {
+      this._dialogPage++
+      this._showDialogPage()
+    } else {
+      this._closeDialog()
+    }
   }
 
   // Cámara: sigue al jugador con clamp a los bordes del mapa; si el mapa es más
@@ -281,9 +817,27 @@ export class MapTestScene extends Phaser.Scene {
           x: o.x, y: o.y, w: o.width, h: o.height,
           cx: o.x + o.width / 2, cy: o.y + o.height / 2,
           minigame, id: prop('id') ?? null,
+          darken: prop('darken') === true,   // oscurecer fuera de la zona (opcional)
         }
       })
       .filter(Boolean)
+  }
+
+  // Dibuja el oscurecido cubriendo todo el mundo MENOS el rectángulo del área
+  // activa (4 franjas alrededor del hueco). Se llama al empezar el minijuego.
+  _drawDarkOverlay() {
+    const g = this._darkOverlay
+    g.clear()
+    const a = this._activeArea
+    if (!a) return
+    const W = this._mapW, H = this._mapH
+    const alpha = 0.45
+    g.fillStyle(0x000000, alpha)
+    // Franja superior, inferior, izquierda y derecha del hueco del área
+    g.fillRect(0, 0, W, a.y)                                  // arriba
+    g.fillRect(0, a.y + a.h, W, H - (a.y + a.h))              // abajo
+    g.fillRect(0, a.y, a.x, a.h)                              // izquierda
+    g.fillRect(a.x + a.w, a.y, W - (a.x + a.w), a.h)          // derecha
   }
 
   // Nº de estaciones esperadas por tipo de minijuego (para validar el armado).
@@ -381,6 +935,84 @@ export class MapTestScene extends Phaser.Scene {
       .sort((a, b) => a.slot - b.slot)
   }
 
+  // Lee la object layer "npcs" y dibuja cada NPC anclado por los pies. Idle
+  // frontal por defecto; mira al jugador según su dirección al acercarse.
+  _buildNpcs(map) {
+    this._npcs = []
+    const layer = map.getObjectLayer('npcs')
+    if (!layer) return
+    // Asegura la animación de la tecla E (por si no hay stations que la creen).
+    if (!this.anims.exists('key-e-pulse')) {
+      this.anims.create({
+        key: 'key-e-pulse',
+        frames: [
+          { key: 'key-e', frame: 0, duration: 800 },
+          { key: 'key-e', frame: 1, duration: 800 },
+        ],
+        repeat: -1,
+      })
+    }
+    for (const o of layer.objects) {
+      const prop = n => (o.properties ?? []).find(p => p.name === n)?.value
+      const type = prop('npc') || 'doctor'
+      const key = `npc-${type}`
+      if (!this.textures.exists(key)) continue
+
+      // Posición de los pies: punto → (x,y); rectángulo → centro-inferior.
+      const feetX = o.point ? o.x : o.x + (o.width || 0) / 2
+      const feetY = o.point ? o.y : o.y + (o.height || 0)
+      // El sprite mide 32×64; origen (0.5,1) lo ancla por los pies.
+      const spr = this.add.sprite(feetX, feetY, key, 18).setOrigin(0.5, 1)
+      spr.setDepth(this.YSORT_BASE + feetY)   // Y-sort por sus pies
+      spr.play(`${type}-down`)                // idle frontal por defecto
+      spr._type = type
+      spr._feetX = feetX
+      spr._feetY = feetY
+      spr._facing = 'down'
+      // Colisión estática (que el jugador no lo atraviese): caja en los pies.
+      this.matter.add.rectangle(feetX, feetY - 16, 24, 24, { isStatic: true })
+
+      // Tecla E flotando sobre la cabeza del NPC (oculta hasta acercarse).
+      const keyDepth = this.YSORT_BASE + this.map.heightInPixels + 400
+      spr._keyE = this.add.sprite(feetX, feetY - 64 - 14, 'key-e')
+        .setDepth(keyDepth)
+        .play('key-e-pulse')
+        .setVisible(false)
+
+      // Ícono de nota (2 frames en bucle) sobre la cabeza; aparece tras hablar.
+      if (this.textures.exists('note')) {
+        if (!this.anims.exists('note-play')) {
+          this.anims.create({
+            key: 'note-play',
+            frames: this.anims.generateFrameNumbers('note', { start: 0, end: 5 }),
+            frameRate: 10, repeat: 0,   // una sola pasada; queda en el frame 6
+          })
+        }
+        spr._note = this.add.sprite(feetX, feetY - 64 - 16, 'note', 5)   // frame final por defecto
+          .setDepth(keyDepth)
+          .setVisible(false)
+      }
+
+      this._npcs.push(spr)
+    }
+  }
+
+  // El NPC siempre mira al frente; muestra la tecla E cuando el jugador está en
+  // rango (para interactuar). El giro hacia el jugador ocurre solo al hablar (E).
+  _updateNpcs() {
+    if (!this._npcs?.length) return
+    const NEAR = 90   // radio en el que aparece la tecla E
+    const px = this.player.x, py = this.player.y
+    this._nearNpc = null
+    for (const npc of this._npcs) {
+      const dist = Math.hypot(px - npc._feetX, py - (npc._feetY - 32))
+      const near = dist <= NEAR
+      if (near) this._nearNpc = npc
+      // La tecla E del NPC solo antes de empezar el minijuego (para hablarle).
+      npc._keyE.setVisible(near && !this._grabbing && !this.dialogOpen && !this._minigameStarted)
+    }
+  }
+
   // Dibuja la cartulina (card.png, 96×64) centrada sobre cada mesa, con Y-sort
   // por su base y colisión. El TEXTO NO se dibuja en Phaser (se ve pixelado por
   // pixelArt+zoom): se renderiza como overlay HTML en React, nítido.
@@ -408,14 +1040,18 @@ export class MapTestScene extends Phaser.Scene {
     this._stationCards = []      // imagen de cada cartulina (para el vuelo al agarrar)
     this._cardHalfW = CARD_W / 2
     this._cardHalfH = CARD_H / 2
+    this._stationBodies = []   // cuerpos de colisión de las cartulinas
     this._stations.forEach((s) => {
-      const card = this.add.image(s.cx, s.cy, 'mg-card')
+      // Cartulina oculta hasta que empiece el minijuego (tras hablar con el NPC)
+      const card = this.add.image(s.cx, s.cy, 'mg-card').setVisible(false)
       this._stationCards.push(card)
       // Y-sort por la base de la cartulina (su borde inferior).
       const baseY = s.cy + CARD_H / 2
       card.setDepth(this.YSORT_BASE + baseY)
-      // Colisión: rectángulo estático del tamaño de la cartulina.
-      this.matter.add.rectangle(s.cx, s.cy, CARD_W, CARD_H, { isStatic: true })
+      // Colisión del tamaño de la cartulina (inactiva hasta que aparezca).
+      const body = this.matter.add.rectangle(s.cx, s.cy, CARD_W, CARD_H, { isStatic: true })
+      body.isSensor = true
+      this._stationBodies.push(body)
 
       // Resaltado sobre la cartulina (relleno tenue + borde), oculto hasta que
       // el jugador se acerque. Indica "esta es la que vas a seleccionar".
@@ -442,7 +1078,7 @@ export class MapTestScene extends Phaser.Scene {
   // Emite a React las palabras + su posición EN PANTALLA (para el overlay HTML).
   // Se llama al entrar a la zona y mientras la cámara esté fija ahí.
   _emitStationLabels() {
-    if (!this._stations?.length) return
+    if (!this._stations?.length || !this._minigameStarted) return
     const cam = this.cameras.main
     const toScreen = (wx, wy) => ({
       x: (wx - cam.worldView.x) * cam.zoom,
@@ -467,6 +1103,34 @@ export class MapTestScene extends Phaser.Scene {
 
   _clearStationLabels() {
     window.dispatchEvent(new CustomEvent('station-labels', { detail: { labels: [] } }))
+  }
+
+  // Emite a React el texto del recuadro Q como overlay HTML (nítido, Nunito).
+  // La caja está en coordenadas de PANTALLA (el HUD no tiene zoom/scroll).
+  // Emite TODOS los textos de HUD activos como overlay HTML (nítido). Cada uno
+  // lleva su caja de pantalla, texto, tamaño y alineación.
+  _emitHudText() {
+    const texts = []
+    // Indicación Q + contador de rondas: mientras el minijuego está en curso.
+    if (this._minigameStarted) {
+      const q = this._qTextBox
+      if (q) texts.push({ id: 'q', text: '🔊 Press Q to listen again',
+        x: q.x, y: q.y, w: q.w, h: q.h, size: 18, align: 'left' })
+      const r = this._roundTextBox?.()
+      if (r) texts.push({ id: 'round', text: this._roundNum,
+        x: r.x, y: r.y, w: r.w, h: r.h, size: 22, align: 'center' })
+    }
+    // Texto del diálogo del NPC: mientras está abierto.
+    if (this.dialogOpen && this._dialogText != null) {
+      const d = this._dialogTextBox
+      if (d) texts.push({ id: 'dialog', text: this._dialogText,
+        x: d.x, y: d.y, w: d.w, h: d.h, size: 25, align: 'left', lineHeight: 1.55 })
+    }
+    window.dispatchEvent(new CustomEvent('hud-texts', { detail: { texts } }))
+  }
+
+  _clearHudText() {
+    window.dispatchEvent(new CustomEvent('hud-texts', { detail: { texts: [] } }))
   }
 
   // Lee la object layer "triggers": rectángulos con propiedad `target`.
@@ -624,6 +1288,15 @@ export class MapTestScene extends Phaser.Scene {
     const { player, cursors, wasd } = this
     if (!player) return
 
+    // Durante el diálogo: jugador inmóvil en idle; el HUD manda.
+    if (this.dialogOpen || this._confirmOpen) {
+      player.setVelocity(0)
+      player.play('idle-' + this.lastDir, true)
+      this._updateCamera()
+      if (this._activeArea) this._emitStationLabels()
+      return
+    }
+
     // Durante el agarre: jugador inmóvil, la animación de grab manda.
     if (this._grabbing) {
       player.setVelocity(0)
@@ -648,6 +1321,18 @@ export class MapTestScene extends Phaser.Scene {
     // Normaliza diagonal para no ir más rápido
     if (vx && vy) { const k = speed / Math.hypot(vx, vy); vx *= k; vy *= k }
     player.setVelocity(vx, vy)
+
+    // Si el minijuego está en curso y el jugador toca el borde de la zona,
+    // detenerlo y mostrar el aviso de salir.
+    if (this._minigameStarted && this._activeArea) {
+      const a = this._activeArea
+      const px = player.x, py = player.y
+      if (px < a.x || px > a.x + a.w || py < a.y || py > a.y + a.h) {
+        player.setVelocity(0)
+        this._promptExit()
+        return
+      }
+    }
 
     if (left)       { player.play('walk-left',  true); this.lastDir = 'left'  }
     else if (right) { player.play('walk-right', true); this.lastDir = 'right' }
@@ -674,6 +1359,9 @@ export class MapTestScene extends Phaser.Scene {
     // Tecla E: visible solo si el jugador está cerca (≤1 tile) de la cartulina.
     this._updateStationKeys()
 
+    // NPCs: miran al jugador cuando está cerca.
+    this._updateNpcs()
+
     // Detección de triggers de entrada (por la posición de los pies)
     this._checkTriggers()
   }
@@ -686,8 +1374,8 @@ export class MapTestScene extends Phaser.Scene {
     if (this._nearStation == null || !this._activeArea) return
     const idx = this._nearStation
 
-    // ¿Es la correcta? (TEMP de prueba: "Headache".)
-    const correct = this._stationWords[idx] === 'Headache'
+    // ¿Es la correcta? (según la ronda actual)
+    const correct = idx === this._correctSlot
 
     // INCORRECTA: la cartulina se queda en la mesa y hace el efecto de error
     // (rojo pastel + sacudida), sin animación del personaje.
@@ -728,6 +1416,7 @@ export class MapTestScene extends Phaser.Scene {
       .setStrokeStyle(3, 0x8fd6a5, 1)
       .setDepth(cardDepth + 1)
     this._grabFly.feedback = feedback
+    this._syncUiCameraIgnore()   // que la cámara UI no duplique la carta/feedback
 
     const flyDur = (8 / 14) * 1000   // ~ lo que dura subir los brazos (8 frames a 14fps)
     this.tweens.add({
@@ -746,15 +1435,17 @@ export class MapTestScene extends Phaser.Scene {
       })
     })
 
-    // Al terminar de bajar: restaurar la cartulina de la mesa, volver al idle en
-    // la dirección previa y desbloquear.
+    // Al terminar de bajar: volver al idle, desbloquear y avanzar de ronda.
     player.once('animationcomplete-grab-down', () => {
-      this._stationCards[idx].setVisible(true)   // reaparece en la mesa
       this._grabbingIdx = null
       this.lastDir = prevDir
       player.setTexture(CHAR_IDLE, 0)
       player.play('idle-' + prevDir)
       this._grabbing = false
+      // Acierto → siguiente ronda (nuevas palabras) o fin del minijuego.
+      this._nextRound()
+      // Si el minijuego sigue, la cartulina reaparece con la nueva palabra.
+      if (this._minigameStarted) this._stationCards[idx].setVisible(true)
     })
   }
 
@@ -765,6 +1456,9 @@ export class MapTestScene extends Phaser.Scene {
     this._rejecting = this._rejecting || {}
     this._rejecting[idx] = true
 
+    // Fallo → pierde un corazón (y quizás reinicia).
+    this._loseHeart()
+
     const s = this._stations[idx]
     const card = this._stationCards[idx]
     const cardDepth = this.YSORT_BASE + this.map.heightInPixels + 500
@@ -773,6 +1467,7 @@ export class MapTestScene extends Phaser.Scene {
     const flash = this.add.rectangle(s.cx, s.cy, 96, 64, 0xf5c2bb, 0.55)
       .setStrokeStyle(3, 0xe89a90, 1)
       .setDepth(cardDepth)
+    this._syncUiCameraIgnore()   // que la cámara UI no duplique el flash
 
     // Sacudida horizontal (~0.45s). Un solo tween con offset que va y vuelve
     // varias veces; el texto (overlay HTML) sigue esta X vía _shakeX[idx].
@@ -805,7 +1500,7 @@ export class MapTestScene extends Phaser.Scene {
   // rectángulo de su cartulina (96×64). Guarda la estación en rango para la
   // interacción con E.
   _updateStationKeys() {
-    if (!this._stationKeys?.length) return
+    if (!this._stationKeys?.length || !this._minigameStarted) return
     const NEAR = 32   // 1 tile de margen alrededor de la cartulina
     const px = this.player.x, py = this.player.y
     this._nearStation = null
