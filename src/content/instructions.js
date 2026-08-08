@@ -1,6 +1,50 @@
 // Instrucciones por minijuego, como lista de pasos (inglés primero, luego español).
 // Se muestran en el modal del botón "?" del HUD.
 export const INSTRUCTIONS = {
+  // Versión espacial (dentro del mapa): el jugador se mueve y agarra la
+  // cartulina correcta. Distinta del 'listen-choose' de UI de abajo.
+  'listen-choose-spatial': {
+    en: [
+      'Walk up to the tables — a word plays automatically each round.',
+      'Press Q at any time to hear the word again.',
+      'Read the cards on the tables and find the one that matches the word.',
+      'Stand next to the correct card and press the grab key to pick it up.',
+      'If you grab the wrong card it stays on the table — try another one.',
+      'You have a set of hearts per round: each wrong grab costs one heart.',
+      'Grab the correct card to win the round and move on to the next word.',
+    ],
+    es: [
+      'Acérquese a las mesas — cada ronda suena una palabra automáticamente.',
+      'Presione Q en cualquier momento para volver a escuchar la palabra.',
+      'Lea las cartulinas de las mesas y busque la que coincide con la palabra.',
+      'Póngase junto a la cartulina correcta y presione la tecla de agarrar para tomarla.',
+      'Si agarra la cartulina equivocada, se queda en la mesa — pruebe otra.',
+      'Tiene varios corazones por ronda: cada error le cuesta un corazón.',
+      'Agarre la cartulina correcta para ganar la ronda y pasar a la siguiente palabra.',
+    ],
+  },
+  // Versión espacial de Listen & Point: como listen-choose-spatial, pero las
+  // cartulinas muestran una imagen en vez de la palabra escrita.
+  'listen-point-spatial': {
+    en: [
+      'Walk up to the tables — a word plays automatically each round.',
+      'Press Q at any time to hear the word again.',
+      'Look at the pictures on the tables and find the one that matches the word.',
+      'Stand next to the correct picture and press the grab key to pick it up.',
+      'If you grab the wrong picture it stays on the table — try another one.',
+      'You have a set of hearts per round: each wrong grab costs one heart.',
+      'Grab the correct picture to win the round and move on to the next word.',
+    ],
+    es: [
+      'Acérquese a las mesas — cada ronda suena una palabra automáticamente.',
+      'Presione Q en cualquier momento para volver a escuchar la palabra.',
+      'Mire las imágenes de las mesas y busque la que coincide con la palabra.',
+      'Póngase junto a la imagen correcta y presione la tecla de agarrar para tomarla.',
+      'Si agarra la imagen equivocada, se queda en la mesa — pruebe otra.',
+      'Tiene varios corazones por ronda: cada error le cuesta un corazón.',
+      'Agarre la imagen correcta para ganar la ronda y pasar a la siguiente palabra.',
+    ],
+  },
   'listen-choose': {
     en: [
       'Listen to the word that plays automatically.',

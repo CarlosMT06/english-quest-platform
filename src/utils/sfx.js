@@ -6,6 +6,7 @@ const SOURCES = {
   wrong:   '/assets/sfx/wrong.mp3',
   click:   '/assets/sfx/click.mp3',
   victory: '/assets/sfx/victory.mp3',
+  defeat:  '/assets/sfx/defeat.mp3',
   step:    '/assets/sfx/step.mp3',
 }
 

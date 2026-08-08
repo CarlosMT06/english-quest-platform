@@ -39,6 +39,11 @@ export class MapTestScene extends Phaser.Scene {
       ysort:   { key: 'city-ysort', json: '/assets/maps/ysort.json' },
       spawn:   { x: 40, y: 40 },   // tile por defecto
       speed:   SPEED,              // velocidad del jugador
+      // Claves de instrucciones (INSTRUCTIONS en content/instructions.js) para
+      // el botón "?". minigameKey se usa dentro del minijuego; mapHelpKey al
+      // recorrer el mapa. Cada escena/minijuego puede sobrescribirlas.
+      minigameKey: 'listen-choose-spatial',
+      mapHelpKey:  'map-city',
     }
   }
 
@@ -67,6 +72,11 @@ export class MapTestScene extends Phaser.Scene {
     if (!this.textures.exists('mg-card')) {
       this.load.image('mg-card', '/assets/map/sprites/card.png')
     }
+    // Cartulina cuadrada (84×84) para Listen & Point: la imagen va en su zona
+    // interior de 64×64.
+    if (!this.textures.exists('mg-card-square')) {
+      this.load.image('mg-card-square', '/assets/map/sprites/card-square.png')
+    }
     if (!this.textures.exists('key-e')) {
       this.load.spritesheet('key-e', '/assets/map/sprites/key_e.png', {
         frameWidth: 32, frameHeight: 32,
@@ -94,6 +104,11 @@ export class MapTestScene extends Phaser.Scene {
     if (!this.textures.exists('heart')) {
       this.load.image('heart', '/assets/ui/heart.png')
     }
+    if (!this.textures.exists('help-btn')) {
+      this.load.spritesheet('help-btn', '/assets/ui/help-btn.png', {
+        frameWidth: 32, frameHeight: 32,
+      })
+    }
     if (!this.textures.exists('face-doctor')) {
       this.load.spritesheet('face-doctor', '/assets/ui/faces/doctor.png', {
         frameWidth: 64, frameHeight: 64,
@@ -109,6 +124,8 @@ export class MapTestScene extends Phaser.Scene {
         frameWidth: 32, frameHeight: 48,
       })
     }
+    // Las imágenes del vocabulario (Listen & Point) NO se cargan en Phaser: se
+    // muestran como overlay HTML nítido en React (StationImages), por su URL.
   }
 
   create() {
@@ -221,7 +238,8 @@ export class MapTestScene extends Phaser.Scene {
     // ── Cámara ───────────────────────────────────────────────────
     // Control manual (como GameScene): sigue al jugador con clamp a los bordes;
     // si el mapa es más chico que el viewport en un eje, centra el mapa en él.
-    this.cameras.main.setZoom(ZOOM)
+    this._baseZoom = this._cfg.zoom ?? ZOOM
+    this.cameras.main.setZoom(this._baseZoom)
     this._mapW = map.widthInPixels
     this._mapH = map.heightInPixels
     this._updateCamera()
@@ -247,7 +265,10 @@ export class MapTestScene extends Phaser.Scene {
     this._camTransition = 0   // frames restantes de interpolación suave de cámara
 
     // ── Estaciones de minijuego (object layer "stations") ────────
-    this._stations = this._buildStations(map)
+    // _allStations = todas las mesas (de todas las zonas). Al entrar a una zona,
+    // _activateStationsFor filtra las de esa zona en _stations.
+    this._allStations = this._buildStations(map)
+    this._stations = []
     // Las cartulinas se muestran solo tras hablar con el NPC (no al entrar).
     this._minigameStarted = false
 
@@ -270,13 +291,16 @@ export class MapTestScene extends Phaser.Scene {
     // Tecla E: si hay un NPC cerca → diálogo; si no, agarrar la cartulina.
     this._grabbing = false
     this.input.keyboard.on('keydown-E', () => {
+      if (this._helpOpen) return      // la tecla solo cierra la ayuda, no actúa
       if (this.dialogOpen) { this._nextDialogPage(); return }
+      if (this._celebrating) return   // bloqueado durante la celebración
       // Hablar con el NPC solo antes de que empiece el minijuego.
       if (this._nearNpc && !this._minigameStarted) { this._talkToNpc(this._nearNpc); return }
       this._tryGrab()
     })
     // Espacio: confirma el Yes/No (si está abierto), o avanza/cierra el diálogo.
     this.input.keyboard.on('keydown-SPACE', () => {
+      if (this._helpOpen) return
       if (this._confirmOpen) {
         if (this._confirmSel != null) this._resolveConfirm(this._confirmSel === 0 ? 'yes' : 'no')
         return
@@ -284,11 +308,35 @@ export class MapTestScene extends Phaser.Scene {
       this._nextDialogPage()
     })
     // Tecla Q: reproducir el audio de la palabra correcta (solo en el minijuego).
-    this.input.keyboard.on('keydown-Q', () => this._playWord())
+    this.input.keyboard.on('keydown-Q', () => { if (!this._helpOpen) this._playWord() })
     // Resultado del recuadro Yes/No (clic desde React)
     this._onConfirmResult = (e) => this._resolveConfirm(e.detail?.id)
     window.addEventListener('confirm-result', this._onConfirmResult)
     this.events.once('shutdown', () => window.removeEventListener('confirm-result', this._onConfirmResult))
+
+    // Recuadro de ayuda (?): mientras está abierto, el jugador y el mundo se
+    // congelan (guarda en update). React lo abre/cierra vía estos eventos.
+    this._helpOpen = false
+    this._onHelpOpen  = () => { this._helpOpen = true }
+    this._onHelpClose = () => { this._helpOpen = false }
+    window.addEventListener('help-open',  this._onHelpOpen)
+    window.addEventListener('help-close', this._onHelpClose)
+    // Cierre del recuadro de intro (primera vez) → arranca el minijuego.
+    this._onIntroDone = () => { if (!this._minigameStarted) this._startMinigame() }
+    window.addEventListener('game-intro-done', this._onIntroDone)
+    // Acción elegida en el modal de victoria/derrota (viene de React).
+    //   continue/exit → cierra y reanuda el mundo; retry → arranca de nuevo.
+    this._onResultDone = (e) => {
+      this._helpOpen = false
+      if (e.detail?.action === 'retry') this._startMinigame()
+    }
+    window.addEventListener('game-result-done', this._onResultDone)
+    this.events.once('shutdown', () => {
+      window.removeEventListener('help-open',  this._onHelpOpen)
+      window.removeEventListener('help-close', this._onHelpClose)
+      window.removeEventListener('game-intro-done', this._onIntroDone)
+      window.removeEventListener('game-result-done', this._onResultDone)
+    })
 
     // Teclado en el recuadro Yes/No: flechas/A/D cambian la selección, Enter confirma.
     const moveSel = (to) => {
@@ -411,6 +459,30 @@ export class MapTestScene extends Phaser.Scene {
     }
     this._heartGap = HGAP
 
+    // ── Botón de ayuda (?) — esquina inferior derecha ──
+    // Animación al presionar: 0→1→2→1→0 (presiona y vuelve a normal).
+    if (!this.anims.exists('help-press')) {
+      this.anims.create({
+        key: 'help-press',
+        frames: this.anims.generateFrameNumbers('help-btn', { frames: [0, 1, 2, 1, 0] }),
+        frameRate: 12, repeat: 0,
+      })
+    }
+    const HBS = 1.6, HBM = 14   // escala y margen
+    this.helpBtn = this.add.sprite(this.scale.width - HBM, this.scale.height - HBM, 'help-btn', 0)
+      .setOrigin(1, 1).setScale(HBS).setDepth(33)
+      .setInteractive({ useHandCursor: true })
+    this.helpBtn.on('pointerdown', () => {
+      playSfx('click')
+      this.helpBtn.play('help-press')
+      // El contexto decide qué instrucciones se muestran. Dentro de un minijuego
+      // → su clave; fuera → clave del mapa (aún sin contenido).
+      const context = this._minigameStarted
+        ? this._activeMinigameKey()
+        : (this.mapConfig().mapHelpKey ?? 'map')
+      window.dispatchEvent(new CustomEvent('help-box', { detail: { context } }))
+    })
+
     // Cámara UI: sin zoom ni scroll, solo para el HUD.
     // La principal ignora el HUD; la UI ignora TODO lo demás (incluidos objetos
     // creados después, como las cartulinas que aparecen tras el diálogo).
@@ -418,7 +490,8 @@ export class MapTestScene extends Phaser.Scene {
                       this.roundBox,
                       this.qBox, this.qFace,
                       this.confirmBox,
-                      ...this._hearts]
+                      ...this._hearts,
+                      this.helpBtn]
     this._uiSet = new Set(this.dialogHud)
     this.uiCamera = this.cameras.add()
     this.cameras.main.ignore(this.dialogHud)
@@ -573,17 +646,45 @@ export class MapTestScene extends Phaser.Scene {
     this._dialogOnComplete = null
     if (cb) cb()
 
-    // Al terminar el diálogo del NPC, arranca el minijuego (aparecen las cartulinas).
-    if (!this._minigameStarted) this._startMinigame()
+    // Al terminar el diálogo del NPC arranca el minijuego. La PRIMERA vez (por
+    // minijuego) se muestra antes el recuadro de instrucciones (game-intro); el
+    // minijuego arranca al cerrarlo (game-intro-done). En reintentos, directo.
+    if (!this._minigameStarted) {
+      this._introShownFor = this._introShownFor || new Set()
+      const key = this._activeArea?.minigame ?? 'default'
+      if (!this._introShownFor.has(key)) {
+        this._introShownFor.add(key)
+        window.dispatchEvent(new CustomEvent('game-intro', {
+          detail: { context: this._activeMinigameKey() },
+        }))
+      } else {
+        this._startMinigame()
+      }
+    }
+  }
+
+  // Ruta del audio de la palabra correcta de la ronda actual, según el modo:
+  //   Listen & Point → carpeta audioImage + el archivo `audio` del item.
+  //   Listen & Choose → carpeta audioChoose + "<palabra>.mp3".
+  _wordAudioSrc() {
+    if (this._isImageMode()) {
+      const base = unit4.paths?.audioImage || '/assets/content/grade4/unit4/audio/ListenImage/'
+      const item = unit4.minigames['listen-image'].items.find(i => i.id === this._correctId)
+      if (item?.audio) return base + item.audio
+      // Respaldo: por palabra.
+      return base + (this._correctWord || 'Headache') + '.mp3'
+    }
+    const base = unit4.paths?.audioChoose || '/assets/content/grade4/unit4/audio/ListeningChoose/'
+    return base + (this._correctWord || 'Headache') + '.mp3'
   }
 
   // Reproduce el audio de la palabra correcta (tecla Q). La nota sobre el NPC se
   // muestra solo mientras dura el audio (+0.5s) y luego desaparece.
   _playWord() {
     if (!this._minigameStarted || this._wordPlaying) return
-    const word = this._correctWord || 'Headache'   // TEMP de prueba
-    const base = unit4.paths?.audioChoose || '/assets/content/grade4/unit4/audio/ListeningChoose/'
-    const audio = new Audio(base + word + '.mp3')
+    const src = this._wordAudioSrc()
+    if (!src) return
+    const audio = new Audio(src)
 
     // Mostrar la nota (reproduce sus frames y queda en el último)
     this._wordPlaying = true
@@ -640,7 +741,13 @@ export class MapTestScene extends Phaser.Scene {
     this._heartsLeft--
     this._updateHearts()
     if (this._heartsLeft <= 0) {
-      this.time.delayedCall(600, () => this._endMinigame())
+      // Derrota: termina el minijuego y muestra el modal (Reintentar/Salir),
+      // con el mundo congelado hasta que el jugador elija (game-result-done).
+      this.time.delayedCall(600, () => {
+        this._endMinigame()
+        this._helpOpen = true
+        window.dispatchEvent(new CustomEvent('game-result', { detail: { result: 'lose' } }))
+      })
     }
   }
 
@@ -650,8 +757,13 @@ export class MapTestScene extends Phaser.Scene {
   // pero nunca dentro de la misma ronda).
   _genRounds(n) {
     const shuffle = arr => [...arr].sort(() => Math.random() - 0.5)
-    const vocab = unit4.vocabulary
-    const nStations = this._stations.length   // 4
+    // En modo imagen (Listen & Point) solo se usan palabras que tengan imagen
+    // (están en los items de listen-image); en Choose, todo el vocabulario.
+    const imgIds = new Set(unit4.minigames['listen-image'].items.map(i => i.id))
+    const vocab = this._isImageMode()
+      ? unit4.vocabulary.filter(v => imgIds.has(v.id))
+      : unit4.vocabulary
+    const nStations = this._stations.length   // 4 (subconjunto de la zona activa)
     const corrects = shuffle(vocab).slice(0, Math.min(n, vocab.length))
     const rounds = []
     for (let r = 0; r < corrects.length; r++) {
@@ -661,8 +773,10 @@ export class MapTestScene extends Phaser.Scene {
       const correctSlot = words.findIndex(v => v.id === correct.id)
       rounds.push({
         words: words.map(v => v.word),
+        ids: words.map(v => v.id),          // para las imágenes (Listen & Point)
         correctSlot,
         correctWord: correct.word,
+        correctId: correct.id,
       })
     }
     return rounds
@@ -670,11 +784,29 @@ export class MapTestScene extends Phaser.Scene {
 
   // Aplica la ronda actual: pone las palabras en las mesas, define la correcta
   // y reproduce su audio.
+  // ¿El minijuego activo usa imágenes en las cartulinas? (Listen & Point)
+  _isImageMode() {
+    return this._activeArea?.minigame === 'listen-point'
+  }
+
+  // Clave de instrucciones (INSTRUCTIONS) según el minijuego de la zona activa.
+  _activeMinigameKey() {
+    const KEYS = {
+      'listen-choose': 'listen-choose-spatial',
+      'listen-point':  'listen-point-spatial',
+    }
+    return KEYS[this._activeArea?.minigame] ?? this.mapConfig().minigameKey ?? 'listen-choose-spatial'
+  }
+
   _applyRound() {
     const round = this._rounds[this._roundIdx]
     this._stationWords = round.words.slice()
+    this._stationIds = round.ids.slice()
     this._correctWord = round.correctWord
+    this._correctId = round.correctId
     this._correctSlot = round.correctSlot
+    // Muestra imágenes (Listen & Point) o textos (Listen & Choose) en las mesas.
+    this._applyStationContent()
     // Los corazones se recuperan al inicio de cada ronda (fallos permitidos por ronda).
     this._heartsLeft = this._heartsMax
     this._updateHearts()
@@ -684,6 +816,20 @@ export class MapTestScene extends Phaser.Scene {
     // Reproduce el audio de la palabra al empezar la ronda (pequeño retardo para
     // que no se solape con el sonido de acierto de la ronda anterior).
     this.time.delayedCall(350, () => this._playWord())
+  }
+
+  // Pone el contenido de cada cartulina según el modo del minijuego:
+  //   Listen & Point → imagen del vocabulario como overlay HTML NÍTIDO (igual
+  //     idea que el texto: los sprites de Phaser se pixelan con pixelArt+zoom).
+  //   Listen & Choose → texto (overlay HTML).
+  _applyStationContent() {
+    if (this._isImageMode()) {
+      this._clearStationLabels()   // sin textos
+      this._emitStationImages()    // imágenes HTML sobre las cartulinas
+    } else {
+      this._clearStationImages()   // sin imágenes
+      this._emitStationLabels()    // textos HTML
+    }
   }
 
   // Avanza a la siguiente ronda; si se completaron todas, VICTORIA (celebración).
@@ -696,18 +842,30 @@ export class MapTestScene extends Phaser.Scene {
     }
   }
 
-  // Victoria: confetti (mismo efecto que los minijuegos de prueba, vía React) +
-  // sonido, y luego termina el minijuego.
+  // Victoria: el minijuego termina de inmediato (cartulinas, HUD, NPC, corazones
+  // y controles Q/agarrar quedan fuera al instante, para no poder seguir jugando
+  // ni fallar durante la celebración). El confetti/sonido es solo un overlay de
+  // React que se dibuja encima esos ~3s.
   _winMinigame() {
-    // React dispara el confetti (canvas-confetti) + victory al recibir el evento.
+    this._endMinigame()
+    // Bloquea toda interacción (E/Q/hablar con el NPC) mientras dura el confetti,
+    // para que no se pueda reiniciar el minijuego encima de la celebración.
+    this._celebrating = true
     window.dispatchEvent(new CustomEvent('minigame-celebrate'))
-    this.time.delayedCall(3000, () => this._endMinigame())
+    // Modal de victoria (React): muestra la llave obtenida. Congela el mundo
+    // hasta que el jugador presione "Continuar" (game-result-done).
+    this.time.delayedCall(600, () => {
+      this._helpOpen = true
+      window.dispatchEvent(new CustomEvent('game-result', { detail: { result: 'win' } }))
+    })
+    this.time.delayedCall(3000, () => { this._celebrating = false })
   }
 
   // Termina el minijuego y vuelve TODO al estado inicial (jugable otra vez).
   _endMinigame() {
     this._minigameStarted = false
     this._stationCards.forEach(c => c.setVisible(false))
+    this._clearStationImages()   // ocultar imágenes HTML (Listen & Point)
     this._stationBodies.forEach(b => { b.isSensor = true })
     this._stationKeys.forEach(k => k.setVisible(false))
     this._stationHighlights.forEach(h => h.setVisible(false))
@@ -758,6 +916,17 @@ export class MapTestScene extends Phaser.Scene {
   // GameScene: control manual del scroll, correcto con zoom.)
   _updateCamera() {
     const cam   = this.cameras.main
+
+    // Zoom: si hay una transición de zona en curso, interpolar el zoom con la
+    // misma curva que la posición (para que ambos lleguen juntos, sin salto).
+    if (this._camTransition > 0 && this._zoomTo != null) {
+      const pz = 1 - (this._camTransition - 1) / this._camTransitionTotal   // 0 → 1
+      const ez = pz < 0.5 ? 2 * pz * pz : 1 - Math.pow(-2 * pz + 2, 2) / 2   // easeInOutQuad
+      cam.setZoom(Phaser.Math.Linear(this._zoomFrom, this._zoomTo, ez))
+    } else if (this._zoomTo != null) {
+      cam.setZoom(this._zoomTo)
+    }
+
     const zoom  = cam.zoom
     const halfW = cam.width  / (2 * zoom)
     const halfH = cam.height / (2 * zoom)
@@ -856,7 +1025,7 @@ export class MapTestScene extends Phaser.Scene {
     const warn = (msg) => console.warn('[Minigame] ⚠ ' + msg)
     const ok   = (msg) => console.log('[Minigame] ✓ ' + msg)
     const areas = this._minigameAreas
-    const stations = this._stations
+    const stations = this._allStations
 
     if (!areas.length && !stations.length) return   // mapa sin minijuegos
 
@@ -1008,8 +1177,9 @@ export class MapTestScene extends Phaser.Scene {
       const dist = Math.hypot(px - npc._feetX, py - (npc._feetY - 32))
       const near = dist <= NEAR
       if (near) this._nearNpc = npc
-      // La tecla E del NPC solo antes de empezar el minijuego (para hablarle).
-      npc._keyE.setVisible(near && !this._grabbing && !this.dialogOpen && !this._minigameStarted)
+      // La tecla E del NPC solo antes de empezar el minijuego (para hablarle),
+      // y nunca durante la celebración de victoria.
+      npc._keyE.setVisible(near && !this._grabbing && !this.dialogOpen && !this._minigameStarted && !this._celebrating)
     }
   }
 
@@ -1017,8 +1187,7 @@ export class MapTestScene extends Phaser.Scene {
   // por su base y colisión. El TEXTO NO se dibuja en Phaser (se ve pixelado por
   // pixelArt+zoom): se renderiza como overlay HTML en React, nítido.
   _drawStationLabels() {
-    if (!this._stations.length) return
-    const words = unit4.vocabulary.map(v => v.word)
+    if (!this._allStations.length) return
     const CARD_W = 96, CARD_H = 64
 
     // Animación de la tecla E: frame 0 (sin presionar) ~1s → frame 1 (presionado)
@@ -1035,50 +1204,72 @@ export class MapTestScene extends Phaser.Scene {
     }
 
     const keyDepth = this.YSORT_BASE + this.map.heightInPixels + 400
-    this._stationKeys = []       // tecla E por estación (se muestra por proximidad)
-    this._stationHighlights = [] // resaltado de la cartulina en rango
-    this._stationCards = []      // imagen de cada cartulina (para el vuelo al agarrar)
-    this._cardHalfW = CARD_W / 2
-    this._cardHalfH = CARD_H / 2
-    this._stationBodies = []   // cuerpos de colisión de las cartulinas
-    this._stations.forEach((s) => {
+    // Se crean los sprites de TODAS las estaciones (de todas las zonas); cada
+    // uno se guarda EN la estación (s._card, s._body, …). Al iniciar un minijuego
+    // se activan solo las de su zona (_activateStationsFor).
+    this._allStations.forEach((s) => {
+      // Listen & Point usa la cartulina CUADRADA (84×84, imagen en 64×64
+      // interior); el resto, la rectangular (96×64, texto). La forma decide la
+      // textura, la colisión y el tamaño del resaltado.
+      const isPoint = s.station === 'listen-point'
+      const cw = isPoint ? 84 : CARD_W
+      const ch = isPoint ? 84 : CARD_H
+      const tex = isPoint ? 'mg-card-square' : 'mg-card'
+      s._cardW = cw
+      s._cardH = ch
+
       // Cartulina oculta hasta que empiece el minijuego (tras hablar con el NPC)
-      const card = this.add.image(s.cx, s.cy, 'mg-card').setVisible(false)
-      this._stationCards.push(card)
-      // Y-sort por la base de la cartulina (su borde inferior).
-      const baseY = s.cy + CARD_H / 2
-      card.setDepth(this.YSORT_BASE + baseY)
-      // Colisión del tamaño de la cartulina (inactiva hasta que aparezca).
-      const body = this.matter.add.rectangle(s.cx, s.cy, CARD_W, CARD_H, { isStatic: true })
+      const card = this.add.image(s.cx, s.cy, tex).setVisible(false)
+      const baseY = s.cy + ch / 2
+      card.setDepth(this.YSORT_BASE + baseY)   // Y-sort por su borde inferior
+      s._card = card
+
+      // La imagen del vocabulario (Listen & Point) NO es un sprite de Phaser: se
+      // renderiza como overlay HTML nítido en React (_emitStationImages), igual
+      // que el texto, porque pixelArt+zoom pixela los sprites.
+
+      // Colisión de la forma exacta de la cartulina (inactiva hasta aparecer).
+      const body = this.matter.add.rectangle(s.cx, s.cy, cw, ch, { isStatic: true })
       body.isSensor = true
-      this._stationBodies.push(body)
+      s._body = body
 
       // Resaltado sobre la cartulina (relleno tenue + borde), oculto hasta que
-      // el jugador se acerque. Indica "esta es la que vas a seleccionar".
-      // Blanco brillante = resalte tipo "brillo" (neutral, no verde/rojo).
-      const hl = this.add.rectangle(s.cx, s.cy, CARD_W, CARD_H, 0xffffff, 0.35)
+      // el jugador se acerque. Blanco brillante = resalte neutro (no verde/rojo).
+      s._hl = this.add.rectangle(s.cx, s.cy, cw, ch, 0xffffff, 0.35)
         .setStrokeStyle(3, 0xffffff, 0.9)
-        .setDepth(this.YSORT_BASE + baseY + 0.5)   // justo sobre su cartulina
+        .setDepth(this.YSORT_BASE + baseY + 0.5)
         .setVisible(false)
-      this._stationHighlights.push(hl)
 
-      // Tecla E flotando sobre el borde superior de la cartulina (oculta hasta
-      // que el jugador se acerque).
-      const key = this.add.sprite(s.cx, s.cy - CARD_H / 2 - 20, 'key-e')
+      // Tecla E flotando sobre el borde superior de la cartulina (oculta).
+      s._key = this.add.sprite(s.cx, s.cy - ch / 2 - 20, 'key-e')
         .setDepth(keyDepth)
         .play('key-e-pulse')
         .setVisible(false)
-      this._stationKeys.push(key)
     })
+  }
 
-    // Palabra de cada mesa (por ahora, de prueba, por índice de slot)
-    this._stationWords = this._stations.map((s, i) => words[i % words.length])
+  // Activa el subconjunto de estaciones de una zona de minijuego: llena
+  // _stations y los arrays paralelos (_stationCards, _stationBodies, …) que usa
+  // toda la lógica de rondas/agarre, tomando solo las mesas cuyo `id` coincide
+  // con el del área (ordenadas por slot).
+  _activateStationsFor(area) {
+    const subset = this._allStations
+      .filter(s => s.id === area.id)
+      .sort((a, b) => a.slot - b.slot)
+    this._stations         = subset
+    this._stationCards     = subset.map(s => s._card)
+    this._stationBodies    = subset.map(s => s._body)
+    this._stationHighlights = subset.map(s => s._hl)
+    this._stationKeys      = subset.map(s => s._key)
   }
 
   // Emite a React las palabras + su posición EN PANTALLA (para el overlay HTML).
   // Se llama al entrar a la zona y mientras la cámara esté fija ahí.
   _emitStationLabels() {
     if (!this._stations?.length || !this._minigameStarted) return
+    // En modo imagen (Listen & Point) no hay textos HTML: las cartulinas usan
+    // sprites de imagen, que se reposicionan en _updateStationImgs.
+    if (this._isImageMode()) return
     const cam = this.cameras.main
     const toScreen = (wx, wy) => ({
       x: (wx - cam.worldView.x) * cam.zoom,
@@ -1103,6 +1294,51 @@ export class MapTestScene extends Phaser.Scene {
 
   _clearStationLabels() {
     window.dispatchEvent(new CustomEvent('station-labels', { detail: { labels: [] } }))
+  }
+
+  // Ruta de la imagen del vocabulario para un id (para el <img> HTML en React).
+  _vocabImageSrc(id) {
+    const item = unit4.minigames['listen-image'].items.find(i => i.id === id)
+    return item ? unit4.paths.images + item.image : null
+  }
+
+  // Emite a React las imágenes de las cartulinas (Listen & Point) con su posición
+  // y TAMAÑO en pantalla, para renderizarlas como overlay HTML nítido. Igual
+  // patrón que _emitStationLabels: sigue la cámara y el shake de error.
+  _emitStationImages() {
+    if (!this._stations?.length || !this._minigameStarted || !this._isImageMode()) return
+    const cam = this.cameras.main
+    const toScreen = (wx, wy) => ({
+      x: (wx - cam.worldView.x) * cam.zoom,
+      y: (wy - cam.worldView.y) * cam.zoom,
+    })
+    const images = []
+    this._stations.forEach((s, i) => {
+      if (i === this._grabbingIdx) return   // la agarrada deja la mesa vacía
+      const src = this._vocabImageSrc(this._stationIds[i])
+      if (!src) return
+      const shakeOff = this._shakeX?.[i] ?? 0
+      // 64px de zona interior de la cartulina, en píxeles de pantalla (× zoom).
+      images.push({ src, size: 64 * cam.zoom, ...toScreen(s.cx + shakeOff, s.cy) })
+    })
+    // Imagen de la copia que vuela hacia el personaje (durante el agarre).
+    if (this._grabFly?.obj?.active && this._grabFly.imgSrc) {
+      const g = this._grabFly.obj
+      images.push({ src: this._grabFly.imgSrc, size: 64 * cam.zoom, ...toScreen(g.x, g.y) })
+    }
+    window.dispatchEvent(new CustomEvent('station-images', { detail: { images } }))
+  }
+
+  _clearStationImages() {
+    window.dispatchEvent(new CustomEvent('station-images', { detail: { images: [] } }))
+  }
+
+  // Emite el contenido de las cartulinas del frame (posición en pantalla), según
+  // el modo: imágenes HTML (Point) o textos HTML (Choose). Se llama cada frame
+  // desde update para que siga la cámara y el shake.
+  _emitStationContent() {
+    if (this._isImageMode()) this._emitStationImages()
+    else this._emitStationLabels()
   }
 
   // Emite a React el texto del recuadro Q como overlay HTML (nítido, Nunito).
@@ -1288,12 +1524,12 @@ export class MapTestScene extends Phaser.Scene {
     const { player, cursors, wasd } = this
     if (!player) return
 
-    // Durante el diálogo: jugador inmóvil en idle; el HUD manda.
-    if (this.dialogOpen || this._confirmOpen) {
+    // Durante el diálogo o la ayuda: jugador inmóvil en idle; el HUD manda.
+    if (this.dialogOpen || this._confirmOpen || this._helpOpen) {
       player.setVelocity(0)
       player.play('idle-' + this.lastDir, true)
       this._updateCamera()
-      if (this._activeArea) this._emitStationLabels()
+      if (this._activeArea) this._emitStationContent()
       return
     }
 
@@ -1302,8 +1538,8 @@ export class MapTestScene extends Phaser.Scene {
       player.setVelocity(0)
       this._updateStationKeys()
       this._updateCamera()
-      // Sigue emitiendo los textos de las OTRAS cartulinas (la agarrada se omite)
-      if (this._activeArea) this._emitStationLabels()
+      // Sigue emitiendo el contenido de las OTRAS cartulinas (la agarrada se omite)
+      if (this._activeArea) this._emitStationContent()
       return
     }
 
@@ -1352,9 +1588,9 @@ export class MapTestScene extends Phaser.Scene {
     // Cámara (sigue/centra según el tamaño del mapa vs. viewport)
     this._updateCamera()
 
-    // Overlay HTML de los textos de las cartulinas: se emite mientras el jugador
-    // está en una zona de estaciones (posición en pantalla, sigue la cámara).
-    if (this._activeArea && this._stations?.length) this._emitStationLabels()
+    // Overlay HTML del contenido de las cartulinas (texto o imagen según modo):
+    // se emite mientras el jugador está en una zona (posición en pantalla).
+    if (this._activeArea && this._stations?.length) this._emitStationContent()
 
     // Tecla E: visible solo si el jugador está cerca (≤1 tile) de la cartulina.
     this._updateStationKeys()
@@ -1396,8 +1632,8 @@ export class MapTestScene extends Phaser.Scene {
     this._stationKeys[idx].setVisible(false)
     this._stationHighlights[idx].setVisible(false)
 
-    // La mesa queda VACÍA durante el agarre: ocultamos la cartulina original y
-    // omitimos su texto (vía _grabbingIdx). Se restauran al terminar.
+    // La mesa queda VACÍA durante el agarre: ocultamos la cartulina original (y
+    // su imagen en modo Point) y omitimos su texto (vía _grabbingIdx).
     this._stationCards[idx].setVisible(false)
     this._grabbingIdx = idx
 
@@ -1405,14 +1641,20 @@ export class MapTestScene extends Phaser.Scene {
     player.setTexture('char-grab', 0)
     player.play('grab-up')
 
-    // COPIA que vuela (con su texto vía _grabFly) desde la mesa al personaje.
+    // COPIA que vuela (con su texto/imagen vía _grabFly) desde la mesa al
+    // personaje. La imagen HTML (modo Point) sigue la posición de este ghost.
     const src = this._stations[idx]
     const cardDepth = this.YSORT_BASE + this.map.heightInPixels + 500
-    const ghost = this.add.image(src.cx, src.cy, 'mg-card').setDepth(cardDepth)
-    this._grabFly = { text: this._stationWords[idx], obj: ghost }
+    const cardTex = src._card.texture.key
+    const ghost = this.add.image(src.cx, src.cy, cardTex).setDepth(cardDepth)
+    this._grabFly = {
+      text: this._stationWords[idx],
+      imgSrc: this._isImageMode() ? this._vocabImageSrc(this._stationIds[idx]) : null,
+      obj: ghost,
+    }
 
-    // Feedback de acierto (verde pastel) sobre la carta que vuela.
-    const feedback = this.add.rectangle(src.cx, src.cy, 96, 64, 0xb6e8c3, 0.45)
+    // Feedback de acierto (verde pastel) sobre la carta que vuela (su tamaño).
+    const feedback = this.add.rectangle(src.cx, src.cy, src._cardW, src._cardH, 0xb6e8c3, 0.45)
       .setStrokeStyle(3, 0x8fd6a5, 1)
       .setDepth(cardDepth + 1)
     this._grabFly.feedback = feedback
@@ -1445,6 +1687,7 @@ export class MapTestScene extends Phaser.Scene {
       // Acierto → siguiente ronda (nuevas palabras) o fin del minijuego.
       this._nextRound()
       // Si el minijuego sigue, la cartulina reaparece con la nueva palabra.
+      // (La imagen la re-muestra _applyStationContent dentro de _nextRound.)
       if (this._minigameStarted) this._stationCards[idx].setVisible(true)
     })
   }
@@ -1463,8 +1706,8 @@ export class MapTestScene extends Phaser.Scene {
     const card = this._stationCards[idx]
     const cardDepth = this.YSORT_BASE + this.map.heightInPixels + 500
 
-    // Overlay rojo pastel sobre la cartulina.
-    const flash = this.add.rectangle(s.cx, s.cy, 96, 64, 0xf5c2bb, 0.55)
+    // Overlay rojo pastel sobre la cartulina (su tamaño exacto).
+    const flash = this.add.rectangle(s.cx, s.cy, s._cardW, s._cardH, 0xf5c2bb, 0.55)
       .setStrokeStyle(3, 0xe89a90, 1)
       .setDepth(cardDepth)
     this._syncUiCameraIgnore()   // que la cámara UI no duplique el flash
@@ -1484,7 +1727,7 @@ export class MapTestScene extends Phaser.Scene {
         const off = t.off
         card.x = baseX + off
         flash.x = baseX + off
-        this._shakeX[idx] = off
+        this._shakeX[idx] = off   // la imagen/texto HTML sigue este offset
       },
       onComplete: () => {
         card.x = baseX
@@ -1497,8 +1740,8 @@ export class MapTestScene extends Phaser.Scene {
   }
 
   // Muestra la tecla E sobre una estación cuando el jugador está a ≤1 tile del
-  // rectángulo de su cartulina (96×64). Guarda la estación en rango para la
-  // interacción con E.
+  // rectángulo de su cartulina (tamaño según su forma). Guarda la estación en
+  // rango para la interacción con E.
   _updateStationKeys() {
     if (!this._stationKeys?.length || !this._minigameStarted) return
     const NEAR = 32   // 1 tile de margen alrededor de la cartulina
@@ -1506,8 +1749,8 @@ export class MapTestScene extends Phaser.Scene {
     this._nearStation = null
     this._stations.forEach((s, i) => {
       // Distancia del jugador al rectángulo de la cartulina (expandido NEAR)
-      const dx = Math.max(Math.abs(px - s.cx) - this._cardHalfW, 0)
-      const dy = Math.max(Math.abs(py - s.cy) - this._cardHalfH, 0)
+      const dx = Math.max(Math.abs(px - s.cx) - s._cardW / 2, 0)
+      const dy = Math.max(Math.abs(py - s.cy) - s._cardH / 2, 0)
       const near = dx <= NEAR && dy <= NEAR
       // Durante el agarre, no re-mostrar la tecla/resaltado (ni de la agarrada).
       const show = near && !!this._activeArea && !this._grabbing
@@ -1530,25 +1773,36 @@ export class MapTestScene extends Phaser.Scene {
     if (inside === this._activeArea) return   // sin cambios
 
     // Cambió el estado de zona → arranca la interpolación suave de cámara
-    // (~0.5 s a 60 fps), desde la posición actual hacia el nuevo objetivo.
+    // (~0.5 s a 60 fps), desde la posición Y ZOOM actuales hacia los nuevos.
     const cam = this.cameras.main
     this._camFrom = { x: cam.scrollX, y: cam.scrollY }
+    this._zoomFrom = cam.zoom
     this._camTransitionTotal = 30
     this._camTransition = 30
 
     if (inside) {
       this._activeArea = inside
+      this._activateStationsFor(inside)   // filtra las mesas de esta zona
+      this._zoomTo = this._zoomForArea(inside)   // zoom destino de la zona
       window.dispatchEvent(new CustomEvent('minigame-area-enter', {
         detail: { minigame: inside.minigame, id: inside.id },
       }))
     } else {
       const left = this._activeArea
       this._activeArea = null
+      this._zoomTo = this._baseZoom   // vuelve al zoom normal al salir
       this._clearStationLabels()   // ocultar textos HTML al salir
       window.dispatchEvent(new CustomEvent('minigame-area-exit', {
         detail: { minigame: left?.minigame, id: left?.id },
       }))
     }
+  }
+
+  // Zoom de la cámara para una zona de minijuego. Listen & Point usa un zoom un
+  // poco mayor (para ver mejor las imágenes); el resto, el zoom base del mapa.
+  _zoomForArea(area) {
+    if (area?.minigame === 'listen-point') return 1.75
+    return this._baseZoom
   }
 
   // Si los pies del jugador entran en un trigger, avisa a React para cambiar de

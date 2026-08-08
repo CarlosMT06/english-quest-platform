@@ -17,6 +17,8 @@ export class InteriorHospitalScene extends MapTestScene {
       ysort:   { key: 'interior-ysort', json: '/assets/maps/InteriorHospital-ysort.json' },
       spawn:   { x: 8, y: 8 },   // tile de aparición (ajustable)
       speed:   3.5,                  // más lento que el exterior (ciudad usa 4.2)
+      minigameKey: 'listen-choose-spatial',
+      mapHelpKey:  'map-hospital',
     }
   }
 }

@@ -35,6 +35,7 @@ export default function App() {
   const [cityReturn, setCityReturn]         = useState(null)
   // Textos de las cartulinas del minijuego, como overlay HTML nítido.
   const [stationLabels, setStationLabels]   = useState([])
+  const [stationImages, setStationImages]   = useState([])
   // Textos de recuadros del HUD (indicación Q, etc.), overlay HTML nítido.
   const [hudTexts, setHudTexts]             = useState([])
   // Recuadro de confirmación Yes/No (texto + botones clickeables), o null.
@@ -184,6 +185,13 @@ export default function App() {
     const onLabels = (e) => setStationLabels(e.detail?.labels ?? [])
     window.addEventListener('station-labels', onLabels)
     return () => window.removeEventListener('station-labels', onLabels)
+  }, [])
+
+  // Imágenes de cartulinas (Listen & Point) como overlay HTML nítido.
+  useEffect(() => {
+    const onImages = (e) => setStationImages(e.detail?.images ?? [])
+    window.addEventListener('station-images', onImages)
+    return () => window.removeEventListener('station-images', onImages)
   }, [])
 
   // Textos de recuadros del HUD (indicación Q, etc.), overlay HTML nítido.
@@ -492,8 +500,12 @@ export default function App() {
         <div id="world-phaser" style={{ position: 'absolute', inset: 0 }} />
         {/* La salida del interior se hace pisando el trigger `target: city`. */}
         <StationLabels labels={stationLabels} />
+        <StationImages images={stationImages} />
         <HudTexts texts={hudTexts} />
         <ConfirmBox data={confirmData} />
+        <HelpBox />
+        <GameIntro />
+        <GameResult />
         {celebrating && <Celebration />}
         <FadeOverlay show={fading} />
         {worldMinigame === 'listen-image' && (
@@ -525,6 +537,9 @@ export default function App() {
           }}>
           ← Back
         </button>
+        <HelpBox />
+        <GameIntro />
+        <GameResult />
         <FadeOverlay show={fading} />
       </div>
     )
@@ -783,6 +798,503 @@ function StationLabels({ labels }) {
       })}
     </>
   )
+}
+
+// Imágenes de las cartulinas de Listen & Point como overlay HTML nítido sobre el
+// canvas (los sprites de Phaser se pixelan con pixelArt+zoom). Cada imagen trae
+// su centro y su tamaño en pantalla (ya escalado por el zoom de la cámara).
+function StationImages({ images }) {
+  if (!images?.length) return null
+  return (
+    <>
+      {images.map((im, i) => (
+        <img key={i} src={im.src} alt="" style={{
+          position: 'absolute', left: im.x, top: im.y,
+          width: im.size, height: im.size,
+          transform: 'translate(-50%, -50%)',
+          objectFit: 'contain',
+          pointerEvents: 'none', zIndex: 20,
+          userSelect: 'none', WebkitUserSelect: 'none',
+        }} />
+      ))}
+    </>
+  )
+}
+
+// Recuadro de instrucciones del juego espacial. Reutiliza el mismo diseño que
+// el modal "?" de los minijuegos full UI (mismas dimensiones y estilo), pero
+// autocontenido: escucha el evento `help-box` que dispara el botón "?" del HUD
+// en Phaser, con la paleta y las instrucciones de listen-choose.
+function HelpBox() {
+  const [open, setOpen] = useState(false)
+  const [context, setContext] = useState('map')
+  const palette = getPalette('listen-choose')
+  // Las instrucciones dependen del contexto (minijuego actual o mapa general).
+  // Si aún no hay contenido para ese contexto, `steps` queda indefinido.
+  const steps = INSTRUCTIONS[context]
+
+  useEffect(() => {
+    const onOpen = (e) => {
+      setContext(e.detail?.context ?? 'map')
+      setOpen(true)
+    }
+    window.addEventListener('help-box', onOpen)
+    return () => window.removeEventListener('help-box', onOpen)
+  }, [])
+
+  // Mientras la ayuda está abierta: congela el mundo (help-open) y ciérrala con
+  // cualquier tecla — moverse o pulsar algo del juego la descarta. Al cerrar,
+  // reanuda el mundo (help-close).
+  useEffect(() => {
+    if (!open) return
+    window.dispatchEvent(new CustomEvent('help-open'))
+    const onKey = () => setOpen(false)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      window.dispatchEvent(new CustomEvent('help-close'))
+    }
+  }, [open])
+
+  if (!open) return null
+  return (
+    <div
+      onClick={() => setOpen(false)}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 40,
+        background: 'rgba(0,0,0,0.55)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontFamily: 'Nunito',
+        animation: 'help-fade 0.2s ease',
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: '#ffffff', borderRadius: 20,
+          width: 'min(92vw, 560px)', maxHeight: '82vh',
+          boxShadow: '0 12px 40px rgba(0,0,0,0.3)',
+          display: 'flex', flexDirection: 'column', overflow: 'hidden',
+          animation: 'help-pop 0.28s cubic-bezier(0.34, 1.3, 0.7, 1)',
+        }}
+      >
+        {/* Encabezado */}
+        <div style={{
+          background: palette.primary, color: '#ffffff',
+          padding: '16px 22px', display: 'flex',
+          justifyContent: 'center', alignItems: 'center',
+          position: 'relative',
+        }}>
+          <span style={{ fontSize: 20, fontWeight: 800 }}>Instructions</span>
+          <button
+            onClick={() => { playSfx('click'); setOpen(false) }}
+            title="Close"
+            style={{
+              position: 'absolute', right: 18, top: '50%', transform: 'translateY(-50%)',
+              width: 34, height: 34, borderRadius: 10,
+              background: 'rgba(255,255,255,0.25)',
+              border: '1.5px solid rgba(255,255,255,0.4)',
+              color: '#ffffff', fontSize: 18, fontWeight: 800,
+              cursor: 'pointer', lineHeight: 1,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >×</button>
+        </div>
+
+        {/* Contenido: instrucciones en inglés y luego en español */}
+        <div style={{
+          padding: '24px 26px', overflowY: 'auto',
+          color: '#2D3436', fontSize: 17, lineHeight: 1.45,
+          display: 'flex', flexDirection: 'column', gap: 22,
+        }}>
+          {!steps && (
+            <div style={{ textAlign: 'center', color: '#9aa0a6', padding: '20px 0' }}>
+              Instructions coming soon.
+            </div>
+          )}
+          {steps && ['en', 'es'].map((lang, li) => (
+            <div key={lang}>
+              {li === 1 && <div style={{ height: 1, background: '#e5e7eb', margin: '0 0 22px' }} />}
+              <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.08em',
+                            textTransform: 'uppercase', color: palette.primary, marginBottom: 12,
+                            textAlign: 'center' }}>
+                {lang === 'en' ? 'English' : 'Español'}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+                {steps?.[lang].map((step, i) => (
+                  <div key={i} style={{
+                    display: 'flex', gap: 12, alignItems: 'flex-start',
+                    animation: `help-item 0.32s ease ${i * 0.05}s both`,
+                  }}>
+                    <span style={{
+                      flexShrink: 0, width: 28, height: 28, borderRadius: '50%',
+                      background: palette.primary, color: '#fff',
+                      fontSize: 15, fontWeight: 800,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>{i + 1}</span>
+                    <span style={{ flex: 1, paddingTop: 3 }}>{step}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Frase que "dice" main en el bocadillo del recuadro de intro, por idioma.
+const INTRO_GREETING = {
+  en: "Hi! Here's how to play this game:",
+  es: '¡Hola! Así se juega este juego:',
+}
+
+// Recuadro de instrucciones que aparece al INICIAR el minijuego (solo la primera
+// vez). Layout: cara de main "hablando" a la izquierda con su bocadillo, pasos
+// numerados a la derecha, selector English/Español arriba y "Let's go!" abajo.
+// El idioma invierte la paleta: EN = encabezado café + tarjeta blanca; ES = al
+// revés (tarjeta café + encabezado blanco). Al cerrar arranca el minijuego.
+function GameIntro() {
+  const [open, setOpen] = useState(false)
+  const [lang, setLang] = useState('en')
+  const [context, setContext] = useState('listen-choose-spatial')
+  const base = getPalette('listen-choose')
+  const steps = INSTRUCTIONS[context]?.[lang] ?? []
+
+  useEffect(() => {
+    const onOpen = (e) => {
+      setContext(e.detail?.context ?? 'listen-choose-spatial')
+      setLang('en')
+      setOpen(true)
+      window.dispatchEvent(new CustomEvent('help-open'))   // congela el mundo
+    }
+    window.addEventListener('game-intro', onOpen)
+    return () => window.removeEventListener('game-intro', onOpen)
+  }, [])
+
+  const close = () => {
+    playSfx('click')
+    setOpen(false)
+    window.dispatchEvent(new CustomEvent('help-close'))     // reanuda el mundo
+    window.dispatchEvent(new CustomEvent('game-intro-done')) // → arranca el minijuego
+  }
+
+  if (!open) return null
+
+  // Paleta invertida por idioma. café = base.primary, blanco = #ffffff.
+  const cafe = base.primary, cafeDark = base.dark
+  const es = lang === 'es'
+  const cardBg   = es ? cafe : '#ffffff'      // fondo de la tarjeta (cuerpo)
+  const headBg   = es ? '#ffffff' : cafe      // barra del encabezado
+  const headTx   = es ? cafe : '#ffffff'      // texto del encabezado
+  const bodyTx   = es ? '#ffffff' : cafeDark  // texto de los pasos
+  const numBg    = es ? '#ffffff' : cafe      // círculo del número
+  const numTx    = es ? cafe : '#ffffff'
+
+  return (
+    <div
+      style={{
+        position: 'fixed', inset: 0, zIndex: 45,
+        background: 'rgba(0,0,0,0.55)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontFamily: 'Nunito', animation: 'help-fade 0.2s ease',
+      }}
+    >
+      <div
+        style={{
+          background: cardBg, borderRadius: 20,
+          width: 'min(94vw, 760px)', maxHeight: '86vh',
+          boxShadow: '0 12px 40px rgba(0,0,0,0.35)',
+          display: 'flex', flexDirection: 'column', overflow: 'hidden',
+          animation: 'help-pop 0.28s cubic-bezier(0.34, 1.3, 0.7, 1)',
+          border: es ? `2px solid ${cafe}` : 'none',
+        }}
+      >
+        {/* Selector de idioma (arriba, centrado) */}
+        <div style={{
+          background: headBg, padding: '14px 22px',
+          display: 'flex', justifyContent: 'center', gap: 12,
+        }}>
+          {['en', 'es'].map((l) => {
+            const active = lang === l
+            return (
+              <button
+                key={l}
+                onClick={() => { playSfx('click'); setLang(l) }}
+                style={{
+                  padding: '8px 24px', borderRadius: 999,
+                  fontFamily: 'Nunito', fontSize: 15, fontWeight: 800,
+                  cursor: 'pointer',
+                  background: active ? headTx : 'transparent',
+                  color: active ? headBg : headTx,
+                  border: `2px solid ${headTx}`,
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                {l === 'en' ? 'English' : 'Español'}
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Cuerpo: cara + bocadillo a la izquierda, pasos a la derecha */}
+        <div style={{
+          padding: '22px 24px', overflowY: 'auto',
+          display: 'flex', gap: 22, alignItems: 'center',
+        }}>
+          {/* Izquierda: cara de main hablando (enmarcada) + bocadillo */}
+          <div style={{
+            flexShrink: 0, width: 150,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
+          }}>
+            {/* Marco del rostro (face-frame.png, 128x128, hueco central 64x64).
+                Se escala a FRAME px; la cara llena el hueco central (FRAME/2). */}
+            {(() => {
+              const FRAME = 128            // tamaño del marco en pantalla
+              const HOLE = 120             // tamaño de la cara (independiente del marco)
+              return (
+                <div style={{ position: 'relative', width: FRAME, height: FRAME }}>
+                  {/* Marco (fondo). Su hueco central es opaco, así que la cara va encima. */}
+                  <img
+                    src="/assets/ui/face-frame.png"
+                    alt=""
+                    style={{
+                      position: 'absolute', inset: 0,
+                      width: FRAME, height: FRAME,
+                      imageRendering: 'pixelated', pointerEvents: 'none',
+                    }}
+                  />
+                  {/* Cara centrada en el hueco, ENCIMA del marco */}
+                  <div
+                    className="main-face-talk"
+                    style={{
+                      '--face-size': `${HOLE}px`,
+                      position: 'absolute', zIndex: 1,
+                      left: '50%', top: '50%', transform: 'translate(-50%, -50%)',
+                    }}
+                  />
+                </div>
+              )
+            })()}
+            <div style={{
+              position: 'relative',
+              background: numBg, color: numTx,
+              borderRadius: 12, padding: '10px 14px',
+              fontSize: 14, fontWeight: 700, lineHeight: 1.3, textAlign: 'center',
+            }}>
+              {INTRO_GREETING[lang]}
+            </div>
+          </div>
+
+          {/* Derecha: título + pasos numerados */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{
+              fontSize: 20, fontWeight: 800, color: bodyTx, marginBottom: 16,
+            }}>
+              {es ? 'Instrucciones' : 'Instructions'}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {steps.map((step, i) => (
+                <div key={i} style={{
+                  display: 'flex', gap: 12, alignItems: 'flex-start',
+                  color: bodyTx, fontSize: 16, lineHeight: 1.4,
+                  animation: `help-item 0.32s ease ${i * 0.05}s both`,
+                }}>
+                  <span style={{
+                    flexShrink: 0, width: 26, height: 26, borderRadius: '50%',
+                    background: numBg, color: numTx,
+                    fontSize: 14, fontWeight: 800,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>{i + 1}</span>
+                  <span style={{ flex: 1, paddingTop: 2 }}>{step}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Botón inferior: empezar */}
+        <div style={{ padding: '4px 24px 22px', display: 'flex', justifyContent: 'center' }}>
+          <button
+            onClick={close}
+            style={{
+              padding: '12px 44px', borderRadius: 14,
+              background: es ? '#ffffff' : cafe, color: es ? cafe : '#ffffff',
+              border: 'none', fontFamily: 'Nunito', fontSize: 17, fontWeight: 800,
+              cursor: 'pointer', boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+            }}
+          >
+            {es ? '¡A jugar!' : "Let's go!"}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Textos bilingües del modal de victoria/derrota.
+const RESULT_TEXT = {
+  win: {
+    title:  { en: 'You got the key!',   es: '¡Conseguiste la llave!' },
+    sub:    { en: 'Great job — keep going on your adventure.',
+              es: '¡Muy bien! Sigue con tu aventura.' },
+    button: { en: 'Continue', es: 'Continuar' },
+  },
+  lose: {
+    slam:   { en: 'You lost!', es: '¡Perdiste!' },   // texto grande a pantalla
+    title:  { en: 'Don\'t give up!', es: '¡No te rindas!' },
+    sub:    { en: 'You ran out of hearts. Want to try again?',
+              es: 'Te quedaste sin corazones. ¿Quieres intentarlo de nuevo?' },
+    retry:  { en: 'Try again', es: 'Reintentar' },
+    exit:   { en: 'Leave',     es: 'Salir' },
+  },
+}
+
+// Modal de resultado del minijuego: victoria (muestra la llave obtenida + cara
+// de main feliz + botón Continuar) o derrota (mensaje de ánimo + Reintentar /
+// Salir). Reusa el estilo modal (paleta del minijuego). El mundo queda congelado
+// (lo puso Phaser); al elegir, avisa a Phaser con game-result-done {action}.
+function GameResult() {
+  const [result, setResult] = useState(null)   // 'win' | 'lose' | null
+  const [phase, setPhase]   = useState('box')   // derrota: 'slam' → 'box'
+  const [lang] = useState('en')                // idioma fijo (podría heredarse)
+  const palette = getPalette('listen-choose')
+
+  useEffect(() => {
+    const onResult = (e) => {
+      const r = e.detail?.result ?? null
+      setResult(r)
+      // La derrota empieza con el texto grande "¡Perdiste!" (slam) + sonido de
+      // defeat y, tras un momento, pasa al recuadro del doctor con Reintentar/Salir.
+      setPhase(r === 'lose' ? 'slam' : 'box')
+      if (r === 'lose') playSfx('defeat')
+    }
+    window.addEventListener('game-result', onResult)
+    return () => window.removeEventListener('game-result', onResult)
+  }, [])
+
+  // Transición slam → box en la derrota.
+  useEffect(() => {
+    if (result === 'lose' && phase === 'slam') {
+      const id = setTimeout(() => setPhase('box'), 1400)
+      return () => clearTimeout(id)
+    }
+  }, [result, phase])
+
+  if (!result) return null
+  const t = RESULT_TEXT[result]
+  const cafe = palette.primary
+
+  const finish = (action) => {
+    playSfx('click')
+    setResult(null)
+    window.dispatchEvent(new CustomEvent('game-result-done', { detail: { action } }))
+  }
+
+  // Fase 1 de la derrota: texto grande "¡Perdiste!" a pantalla completa, sin recuadro.
+  if (result === 'lose' && phase === 'slam') {
+    return (
+      <div style={{
+        position: 'fixed', inset: 0, zIndex: 50,
+        background: 'rgba(0,0,0,0.62)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontFamily: 'Nunito', animation: 'help-fade 0.2s ease', pointerEvents: 'auto',
+      }}>
+        <div className="lose-slam" style={{
+          fontSize: 'clamp(48px, 12vw, 110px)', fontWeight: 800,
+          color: '#ffffff', textAlign: 'center', letterSpacing: '0.02em',
+          textShadow: '0 6px 0 rgba(0,0,0,0.25), 0 0 30px rgba(0,0,0,0.4)',
+          userSelect: 'none', WebkitUserSelect: 'none', caretColor: 'transparent',
+          pointerEvents: 'none',
+        }}>
+          {t.slam[lang]}
+        </div>
+      </div>
+    )
+  }
+
+  // Fase 2 (derrota) y victoria: el recuadro modal.
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 50,
+      background: 'rgba(0,0,0,0.55)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontFamily: 'Nunito', animation: 'help-fade 0.2s ease',
+      pointerEvents: 'auto',
+    }}>
+      <div style={{
+        background: '#ffffff', borderRadius: 20,
+        width: 'min(92vw, 460px)',
+        boxShadow: '0 12px 40px rgba(0,0,0,0.35)',
+        overflow: 'hidden',
+        animation: 'help-pop 0.32s cubic-bezier(0.34, 1.3, 0.7, 1)',
+      }}>
+        {/* Barra de color superior */}
+        <div style={{ height: 8, background: cafe }} />
+
+        <div style={{
+          padding: '26px 28px 24px',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16,
+          textAlign: 'center',
+        }}>
+          {/* Victoria: la llave grande. Derrota: cara del doctor hablando. */}
+          {result === 'win' ? (
+            <div className="win-key">
+              <img
+                className="win-key-inner"
+                src="/assets/ui/key.png"
+                alt="key"
+                style={{ width: 120, height: 'auto', imageRendering: 'pixelated',
+                         filter: 'drop-shadow(0 6px 14px rgba(0,0,0,0.25))' }}
+              />
+            </div>
+          ) : (
+            <div className="doctor-face-talk" style={{ '--face-size': '100px' }} />
+          )}
+
+          <div style={{ fontSize: 24, fontWeight: 800, color: palette.dark }}>
+            {t.title[lang]}
+          </div>
+          <div style={{ fontSize: 16, lineHeight: 1.4, color: '#5a5a5a', maxWidth: 340 }}>
+            {t.sub[lang]}
+          </div>
+
+          {/* Botones */}
+          <div style={{ display: 'flex', gap: 12, marginTop: 6 }}>
+            {result === 'win' ? (
+              <button
+                onClick={() => finish('continue')}
+                style={btnStyle(cafe, '#ffffff')}
+              >{t.button[lang]}</button>
+            ) : (
+              <>
+                <button
+                  onClick={() => finish('retry')}
+                  style={btnStyle(cafe, '#ffffff')}
+                >{t.retry[lang]}</button>
+                <button
+                  onClick={() => finish('exit')}
+                  style={btnStyle('#ffffff', cafe, cafe)}
+                >{t.exit[lang]}</button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Estilo de botón tipo píldora para el modal de resultado.
+function btnStyle(bg, color, border) {
+  return {
+    padding: '11px 32px', borderRadius: 14,
+    background: bg, color,
+    border: border ? `2px solid ${border}` : 'none',
+    fontFamily: 'Nunito', fontSize: 16, fontWeight: 800,
+    cursor: 'pointer', boxShadow: '0 4px 12px rgba(0,0,0,0.18)',
+  }
 }
 
 // Textos de recuadros del HUD (indicación Q, etc.) como overlay HTML nítido.

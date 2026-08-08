@@ -29,6 +29,53 @@ body {
   100% { opacity: 0; transform: translateY(-6px); }
 }
 
+/* Cara de main "hablando": spritesheet 640x192 (frames 64x64). La fila 0
+   (10 frames = 640px de ancho) es la animación de habla. Se anima moviendo
+   background-position-x en pasos. El tamaño se controla con --face-size. */
+@keyframes face-talk {
+  from { background-position-x: 0; }
+  to   { background-position-x: calc(-10 * var(--face-size)); }
+}
+.main-face-talk, .doctor-face-talk {
+  width: var(--face-size);
+  height: var(--face-size);
+  background-repeat: no-repeat;
+  /* Escala el sheet: 10 columnas de ancho, 3 filas de alto */
+  background-size: calc(10 * var(--face-size)) calc(3 * var(--face-size));
+  background-position: 0 0;
+  image-rendering: pixelated;
+  animation: face-talk 0.8s steps(10) infinite;
+}
+.main-face-talk   { background-image: url('/assets/ui/faces/main.png'); }
+.doctor-face-talk { background-image: url('/assets/ui/faces/doctor.png'); }
+
+/* Llave de victoria: entra con un "pop" y un leve balanceo continuo. */
+@keyframes key-pop {
+  0%   { opacity: 0; transform: scale(0.3) rotate(-25deg); }
+  60%  { opacity: 1; transform: scale(1.15) rotate(8deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+@keyframes key-float {
+  0%, 100% { transform: translateY(0) rotate(-3deg); }
+  50%       { transform: translateY(-8px) rotate(3deg); }
+}
+.win-key {
+  animation: key-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.win-key-inner {
+  animation: key-float 2.4s ease-in-out infinite;
+}
+
+/* Texto grande "¡Perdiste!" — entra con un golpe (escala + sacudida). */
+@keyframes lose-slam {
+  0%   { opacity: 0; transform: scale(2.2); }
+  55%  { opacity: 1; transform: scale(0.92); }
+  70%  { transform: scale(1.05) translateX(-6px); }
+  82%  { transform: scale(1) translateX(5px); }
+  100% { opacity: 1; transform: scale(1) translateX(0); }
+}
+.lose-slam { animation: lose-slam 0.6s cubic-bezier(0.2, 0.8, 0.3, 1) both; }
+
 /* ── ListenChoose animations ─────────────────────────────── */
 @keyframes lc-shake {
   0%, 100% { transform: translateX(0) rotate(0deg); }
